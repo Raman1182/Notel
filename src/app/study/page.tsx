@@ -4,14 +4,19 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { AppHeader } from '@/components/shared/app-header'; 
-import { Maximize2, Minimize2, Pause, Play, Settings2, Volume2, VolumeX } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
-import { Textarea } from '@/components/ui/textarea'; // Correct import
+import { Textarea } from '@/components/ui/textarea';
 import { SettingsProvider } from '@/components/settings-provider';
+import { SessionSidebar } from '@/components/study/session-sidebar';
+import { Maximize2, Minimize2, Pause, Play, Settings2, Volume2, VolumeX, FileUp, StickyNote, Paperclip } from 'lucide-react'; // Added Paperclip
 
-const DigitalTimer = () => {
+// Simple Timer Logic (to be replaced by FloatingTimerWidget later)
+const StudyTimer = () => {
   const [time, setTime] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
+
+  useEffect(() => {
+    setIsRunning(true); // Start timer immediately on mount
+  }, []);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -33,40 +38,13 @@ const DigitalTimer = () => {
   };
 
   return (
-    <div className="text-center">
-      <p className="text-6xl font-bold font-mono text-foreground tabular-nums tracking-tighter">
+    <div className="text-center mb-4 text-foreground-opacity-70">
+      <p className="text-xl font-mono">
         {formatTime(time)}
       </p>
-      <Button onClick={() => setIsRunning(!isRunning)} variant="ghost" className="mt-2 text-sm">
-        {isRunning ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
-        {isRunning ? 'Pause Timer' : 'Start Timer'}
-      </Button>
-    </div>
-  );
-};
-
-
-const FloatingControlBar = ({ onToggleFocus, isFocusMode }: { onToggleFocus: () => void; isFocusMode: boolean }) => {
-  const [isMuted, setIsMuted] = useState(false);
-
-  return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-auto max-w-md
-                    bg-background/70 backdrop-blur-md border border-border 
-                    rounded-full shadow-xl p-2 flex items-center space-x-2 z-50">
-      <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/20 active:scale-95 transition-transform" aria-label="Play/Pause">
-        <Play className="h-5 w-5" />
-      </Button>
-      <div className="w-24">
-         <Progress value={33} className="h-1.5"/>
-      </div>
-      <Button variant="ghost" size="icon" onClick={() => setIsMuted(!isMuted)} className="rounded-full hover:bg-primary/20 active:scale-95 transition-transform" aria-label={isMuted ? "Unmute" : "Mute"}>
-        {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-      </Button>
-      <Button variant="ghost" size="icon" onClick={onToggleFocus} className="rounded-full hover:bg-primary/20 active:scale-95 transition-transform" aria-label={isFocusMode ? "Exit focus mode" : "Enter focus mode"}>
-        {isFocusMode ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
-      </Button>
-       <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/20 active:scale-95 transition-transform" aria-label="Settings">
-        <Settings2 className="h-5 w-5" />
+      <Button onClick={() => setIsRunning(!isRunning)} variant="ghost" size="sm" className="mt-1 text-xs">
+        {isRunning ? <Pause className="mr-1 h-3 w-3" /> : <Play className="mr-1 h-3 w-3" />}
+        {isRunning ? 'Pause' : 'Start'}
       </Button>
     </div>
   );
@@ -74,36 +52,82 @@ const FloatingControlBar = ({ onToggleFocus, isFocusMode }: { onToggleFocus: () 
 
 
 export default function StudySessionPage() {
-  const [isFocusMode, setIsFocusMode] = useState(false);
+  const [isReferencePanelOpen, setIsReferencePanelOpen] = useState(false);
+  // Placeholder for AI assist buttons visibility
+  const [showAiButtons, setShowAiButtons] = useState(false);
 
-  const toggleFocusMode = () => setIsFocusMode(prev => !prev);
+
+  const toggleReferencePanel = () => setIsReferencePanelOpen(prev => !prev);
 
   return (
     <SettingsProvider>
-      <div className="flex flex-col h-screen bg-background text-foreground">
+      <div className="flex flex-col h-screen bg-[#0A0A0A] text-foreground"> {/* Deep dark background */}
         <AppHeader />
         
-        <div className={`flex-1 grid grid-cols-1 md:grid-cols-2 gap-0 transition-opacity duration-500 ${isFocusMode ? 'opacity-50 [&>*:not(.focused-area)]:opacity-30' : 'opacity-100'}`}>
-          <div className={`h-full flex flex-col items-center justify-center bg-white/5 border-r border-border p-4 ${isFocusMode ? 'focused-area !opacity-100' : ''}`}>
-            <p className="text-muted-foreground">PDF Viewer Area</p>
-            <iframe src="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" title="Dummy PDF for study session" className="w-full h-5/6 mt-4 rounded-md border border-border"></iframe>
-          </div>
+        <div className="flex flex-1 overflow-hidden">
+          <SessionSidebar />
 
-          <div className={`h-full flex flex-col items-center justify-center bg-white/5 p-4 ${isFocusMode && !document.activeElement?.closest('.pdf-area') ? 'focused-area !opacity-100' : ''}`}>
-            <p className="text-muted-foreground mb-4">Notes Editor Area</p>
-            <Textarea 
-              defaultValue="Start typing your notes here..." 
-              className="w-full h-5/6 bg-input border-border rounded-md p-4 text-base resize-none focus:ring-primary focus:border-primary"
-            />
-          </div>
-        </div>
-        
-        <div className={`py-8 transition-opacity duration-500 ${isFocusMode ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}>
-          <DigitalTimer />
-        </div>
+          {/* Main Content Area (Note Taking + Reference Panel) */}
+          <main className="flex-1 flex flex-col p-4 md:p-6 overflow-y-auto relative">
+            
+            {/* Top Bar within Note Area: Timer, Attachment Buttons */}
+            <div className="flex items-center justify-between mb-4">
+              <StudyTimer /> {/* Simple timer display */}
+              <div className="flex space-x-2">
+                <Button variant="outline" size="sm" onClick={toggleReferencePanel} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
+                  <Paperclip className="h-4 w-4 mr-2" />
+                  Add PDF
+                </Button>
+                <Button variant="outline" size="sm" onClick={toggleReferencePanel} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
+                  <StickyNote className="h-4 w-4 mr-2" />
+                  Previous Notes
+                </Button>
+              </div>
+            </div>
 
-        <FloatingControlBar onToggleFocus={toggleFocusMode} isFocusMode={isFocusMode} />
+            {/* Note Taking and Reference Panel Split */}
+            <div className="flex flex-1 gap-4 min-h-0"> {/* min-h-0 is important for flex children to scroll */}
+              <div 
+                className="relative flex-1 h-full"
+                onMouseEnter={() => setShowAiButtons(true)}
+                onMouseLeave={() => setShowAiButtons(false)}
+              >
+                <Textarea 
+                  placeholder="Start typing your notes here for Quantum Mechanics..." 
+                  className="w-full h-full bg-[#0F0F0F] border-white/10 rounded-md p-4 text-base resize-none focus:ring-primary focus:border-primary font-code custom-scrollbar"
+                />
+                {/* Placeholder for AI Assist Buttons */}
+                {showAiButtons && (
+                  <div className="absolute bottom-4 right-4 flex space-x-2">
+                    <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-xs p-1.5">✨ Explain</Button>
+                    <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-xs p-1.5">📋 Summarize</Button>
+                    <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-xs p-1.5">⤴️ Expand</Button>
+                  </div>
+                )}
+              </div>
+
+              {isReferencePanelOpen && (
+                <div className="w-[40%] h-full bg-[#0F0F0F] border-white/10 p-4 rounded-md flex flex-col overflow-y-auto custom-scrollbar">
+                  {/* Placeholder for Tab System */}
+                  <div className="flex items-center border-b border-white/10 pb-2 mb-2 text-sm">
+                    <span className="px-3 py-1 bg-primary/20 text-primary rounded-t-md">Physics.pdf</span>
+                    <span className="px-3 py-1 text-muted-foreground hover:bg-white/5 rounded-t-md">Chapter1.pdf</span>
+                    <button className="ml-auto text-muted-foreground hover:text-foreground">&times;</button>
+                  </div>
+                  <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                    PDF / Previous Notes Viewer Area
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* Placeholder for Status Bar */}
+            <div className="mt-4 text-xs text-muted-foreground text-right border-t border-white/10 pt-2">
+                Word Count: 0 | Saved a few seconds ago
+            </div>
+          </main>
+        </div>
       </div>
     </SettingsProvider>
   );
 }
+
