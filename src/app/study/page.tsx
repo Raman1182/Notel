@@ -1,11 +1,13 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { AppHeader } from '@/components/shared/app-header'; // Re-use header for consistency
+import { AppHeader } from '@/components/shared/app-header'; 
 import { Maximize2, Minimize2, Pause, Play, Settings2, Volume2, VolumeX } from 'lucide-react';
-import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
+import { SidebarProvider } from '@/components/ui/enhanced-sidebar';
+import { Textarea } from '@/components/ui/textarea';
 
 const DigitalTimer = () => {
   const [time, setTime] = useState(0); // time in seconds
@@ -77,36 +79,33 @@ export default function StudySessionPage() {
   const toggleFocusMode = () => setIsFocusMode(prev => !prev);
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground">
-      <AppHeader /> {/* Or a more minimal study-specific header */}
-      
-      <div className={`flex-1 grid grid-cols-1 md:grid-cols-2 gap-0 transition-opacity duration-500 ${isFocusMode ? 'opacity-50 [&>*:not(.focused-area)]:opacity-30' : 'opacity-100'}`}>
-        {/* PDF/Document Viewer Area */}
-        <div className={`h-full flex flex-col items-center justify-center bg-white/5 border-r border-border p-4 ${isFocusMode ? 'focused-area !opacity-100' : ''}`}>
-          <p className="text-muted-foreground">PDF Viewer Area</p>
-          <iframe src="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" className="w-full h-5/6 mt-4 rounded-md border border-border"></iframe>
+    <SidebarProvider>
+      <div className="flex flex-col h-screen bg-background text-foreground">
+        <AppHeader /> {/* Or a more minimal study-specific header */}
+        
+        <div className={`flex-1 grid grid-cols-1 md:grid-cols-2 gap-0 transition-opacity duration-500 ${isFocusMode ? 'opacity-50 [&>*:not(.focused-area)]:opacity-30' : 'opacity-100'}`}>
+          {/* PDF/Document Viewer Area */}
+          <div className={`h-full flex flex-col items-center justify-center bg-white/5 border-r border-border p-4 ${isFocusMode ? 'focused-area !opacity-100' : ''}`}>
+            <p className="text-muted-foreground">PDF Viewer Area</p>
+            <iframe src="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" title="Dummy PDF for study session" className="w-full h-5/6 mt-4 rounded-md border border-border"></iframe>
+          </div>
+
+          {/* Notes Editor Area */}
+          <div className={`h-full flex flex-col items-center justify-center bg-white/5 p-4 ${isFocusMode && !document.activeElement?.closest('.pdf-area') ? 'focused-area !opacity-100' : ''}`}>
+            <p className="text-muted-foreground mb-4">Notes Editor Area</p>
+            <Textarea 
+              defaultValue="Start typing your notes here..." 
+              className="w-full h-5/6 bg-input border-border rounded-md p-4 text-base resize-none focus:ring-primary focus:border-primary"
+            />
+          </div>
+        </div>
+        
+        <div className={`py-8 transition-opacity duration-500 ${isFocusMode ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}>
+          <DigitalTimer />
         </div>
 
-        {/* Notes Editor Area */}
-        <div className={`h-full flex flex-col items-center justify-center bg-white/5 p-4 ${isFocusMode && !document.activeElement?.closest('.pdf-area') ? 'focused-area !opacity-100' : ''}`}>
-          <p className="text-muted-foreground mb-4">Notes Editor Area</p>
-          <Textarea 
-            defaultValue="Start typing your notes here..." 
-            className="w-full h-5/6 bg-input border-border rounded-md p-4 text-base resize-none focus:ring-primary focus:border-primary"
-          />
-        </div>
+        <FloatingControlBar onToggleFocus={toggleFocusMode} isFocusMode={isFocusMode} />
       </div>
-      
-      <div className={`py-8 transition-opacity duration-500 ${isFocusMode ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}>
-        <DigitalTimer />
-      </div>
-
-      <FloatingControlBar onToggleFocus={toggleFocusMode} isFocusMode={isFocusMode} />
-    </div>
+    </SidebarProvider>
   );
 }
-
-// Placeholder for Textarea if not already imported. Assuming it's available.
-const Textarea = ({ defaultValue, className }: { defaultValue: string; className: string }) => (
-  <textarea defaultValue={defaultValue} className={className}></textarea>
-);

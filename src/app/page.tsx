@@ -3,7 +3,7 @@
 
 import { AppHeader } from '@/components/shared/app-header';
 import { SidebarProvider, SidebarInset } from '@/components/ui/enhanced-sidebar'; 
-import { AppSidebar } from '@/components/shared/app-sidebar'; // Import the new AppSidebar
+import { AppSidebar } from '@/components/shared/app-sidebar';
 import { StudyStreakWidget } from '@/components/dashboard/study-streak-widget';
 import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
 import { AiAssistantBubble } from '@/components/ai-assistant/ai-assistant-bubble';
@@ -12,10 +12,10 @@ import Image from 'next/image';
 
 export default function DashboardPage() {
   return (
-    <div className="flex flex-col h-screen">
-      <AppHeader />
-      <div className="flex flex-1 min-h-0"> {/* Ensure inner div can shrink */}
-        <SidebarProvider defaultOpen={true}>
+    <SidebarProvider defaultOpen={true}>
+      <div className="flex flex-col h-screen">
+        <AppHeader />
+        <div className="flex flex-1 min-h-0"> {/* Ensure inner div can shrink */}
           <AppSidebar /> {/* Use the new AppSidebar here */}
           <SidebarInset> {/* Manages the main content area with correct padding/margin based on sidebar state */}
             <main className="flex-1 p-6 md:p-8 overflow-y-auto">
@@ -73,10 +73,9 @@ export default function DashboardPage() {
               </div>
             </main>
           </SidebarInset>
-        </SidebarProvider>
+        </div>
+        <AiAssistantBubble />
       </div>
-      <AiAssistantBubble />
-    </div>
+    </SidebarProvider>
   );
 }
-
