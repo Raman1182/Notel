@@ -45,20 +45,10 @@ Text to process:
 {{{text}}}
 """
 
-Please perform the requested action:
-{{#if (eq action "summarize")}}
-- Action: Summarize the provided text.
-- Goal: Condense the text to its core ideas and key takeaways. Aim for a significantly shorter version that captures the essence.
-- Output Format: Provide only the summary text.
-{{else if (eq action "explain")}}
-- Action: Explain the provided text.
-- Goal: Clarify the text, define key terms, break down complex concepts into simpler parts, or provide illustrative examples. Make it easier to understand.
-- Output Format: Provide only the explanation text.
-{{else if (eq action "expand")}}
-- Action: Expand on the provided text.
-- Goal: Elaborate on the text by adding more details, related concepts, examples, or further discussion points. Make the text more comprehensive.
-- Output Format: Provide only the expanded text.
-{{/if}}
+Based on the action "{{action}}", please perform the requested operation:
+- If the action is "summarize": Condense the text to its core ideas and key takeaways. Aim for a significantly shorter version that captures the essence. Your output should be the summary itself.
+- If the action is "explain": Clarify the text, define key terms, break down complex concepts into simpler parts, or provide illustrative examples. Make it easier to understand. Your output should be the explanation itself.
+- If the action is "expand": Elaborate on the text by adding more details, related concepts, examples, or further discussion points. Make the text more comprehensive. Your output should be the expanded text itself.
 
 Ensure your response DIRECTLY contains ONLY the processed text based on the action. Do not add any conversational preamble or sign-off.
 `,
@@ -81,3 +71,4 @@ const processTextFlow = ai.defineFlow(
     return output;
   }
 );
+
