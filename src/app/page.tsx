@@ -19,7 +19,7 @@ export default function DashboardPage() {
           <AppSidebar /> {/* Use the new AppSidebar here */}
           <SidebarInset> {/* Manages the main content area with correct padding/margin based on sidebar state */}
             <main className="flex-1 p-6 md:p-8 overflow-y-auto">
-              <div className="mb-8">
+              <div className="mb-8 text-center"> {/* Centered welcome text */}
                 <h1 className="text-3xl md:text-4xl font-bold font-headline text-foreground tracking-tight">
                   Welcome to LearnLog
                 </h1>

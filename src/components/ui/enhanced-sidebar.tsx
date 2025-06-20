@@ -453,7 +453,7 @@ const SidebarMenuItem = React.forwardRef<
 SidebarMenuItem.displayName = "SidebarMenuItem"
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex w-full items-center gap-2.5 overflow-hidden rounded-md p-2.5 text-left text-sm outline-none ring-sidebar-ring transition-all focus-visible:ring-2 group-data-[collapsible=icon]:justify-center [&>svg]:size-5 [&>svg]:shrink-0",
+  "peer/menu-button flex w-full items-center justify-start gap-2.5 overflow-hidden rounded-md p-2.5 text-left text-sm outline-none ring-sidebar-ring transition-all focus-visible:ring-2 group-data-[collapsible=icon]:justify-center [&>svg]:size-5 [&>svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -500,8 +500,7 @@ const SidebarMenuButton = React.forwardRef<
     const buttonContent = (
       <>
         {children} {/* Icon and Text */}
-        {/* Shortcut display logic removed based on user request */}
-         {/* Tooltip content for collapsed state */}
+        {/* Tooltip content for collapsed state */}
         <span className="sr-only group-data-[collapsible=icon]:not-sr-only group-data-[collapsible=icon]:hidden">
           {typeof tooltip === 'string' ? tooltip : (children as any)?.props?.children || ''}
         </span>
@@ -612,3 +611,4 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
