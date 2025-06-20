@@ -41,13 +41,14 @@ body {
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
+    /* Light theme sidebar (not primary for LearnLog but good to have) */
+    --sidebar-background: 0 0% 98%; /* Light grey */
+    --sidebar-foreground: 240 5.3% 26.1%; /* Darker text */
+    --sidebar-primary: 202 83% 51%; /* Electric Blue */
+    --sidebar-primary-foreground: 0 0% 100%; /* White */
+    --sidebar-accent: 0 0% 92%; /* Lighter grey for hover */
+    --sidebar-accent-foreground: 240 5.9% 10%; /* Darker text for hover */
+    --sidebar-border: 0 0% 90%; /* Subtle border */
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -55,7 +56,6 @@ body {
     --background: 0 0% 0%; /* True Black */
     --foreground: 0 0% 100%; /* Pure White */
 
-    /* For non-glassmorphic cards, use a very dark grey. Glassmorphism will be applied via utility classes. */
     --card: 0 0% 4%; 
     --card-foreground: 0 0% 95%;
 
@@ -77,7 +77,7 @@ body {
     --destructive: 0 72% 51%; /* #e53e3e */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 8%; /* Subtle border for components that expect it */
+    --border: 0 0% 8%; 
     --input: 0 0% 7%; 
     --ring: 202 83% 51%; /* Electric Blue for focus rings */
 
@@ -92,21 +92,25 @@ body {
     --chart-4: 300 70% 60%; /* A purple */
     --chart-5: 50 80% 60%;  /* An orange */
 
-    /* Sidebar colors for the true black theme */
-    --sidebar-background: 0 0% 2%; /* Slightly off-black, or glassmorphic if preferred */
-    --sidebar-foreground: 0 0% 85%;
-    --sidebar-primary: 202 83% 51%; /* Electric Blue */
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 5%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 0 0% 8%;
-    --sidebar-ring: 202 83% 51%;
+    /* Sidebar colors for glass morphism dark theme */
+    --sidebar-background: 0 0% 100% / 0.05; /* White 5% opacity */
+    --sidebar-foreground: 0 0% 95%; /* White text (slightly off-white) */
+    --sidebar-primary: 202 83% 51%; /* Electric Blue (for active item text & border) */
+    --sidebar-primary-foreground: 202 83% 51%; /* Electric Blue (text color for active) */
+    --sidebar-accent: 202 83% 51% / 0.1; /* Electric Blue 10% opacity for hover */
+    --sidebar-accent-foreground: 202 83% 51%; /* Electric Blue text for hover (or primary) */
+    --sidebar-border: 0 0% 100% / 0.1; /* White 10% opacity for border */
+    --sidebar-ring: 202 83% 51%; /* Electric Blue for focus rings */
   }
 
   .high-contrast.dark {
     /* Example high contrast overrides: less transparency, stronger definition */
     --card: 0 0% 8%; /* More solid card */
     /* Potentially remove backdrop-blur effects for high-contrast if they hinder readability */
+    --sidebar-background: 0 0% 5%; /* Darker, less transparent for high contrast */
+    --sidebar-border: 0 0% 20%; /* More visible border */
+    --sidebar-accent: 202 83% 51% / 0.2; /* Stronger hover */
+
   }
 }
 
@@ -121,13 +125,13 @@ body {
   }
 
   /* Text opacity utilities */
-  .text-foreground- TKTK opacity-100 TKTK { /* Default opacity */
+  .text-foreground-opacity-100 { 
     color: hsl(var(--foreground));
   }
-  .text-foreground- TKTK opacity-70 TKTK {
+  .text-foreground-opacity-70 {
     color: hsla(var(--foreground), 0.7);
   }
-  .text-foreground- TKTK opacity-50 TKTK {
+  .text-foreground-opacity-50 {
     color: hsla(var(--foreground), 0.5);
   }
 }
@@ -170,3 +174,30 @@ body {
   opacity: 0;
   animation: confetti-fall 3s ease-out forwards;
 }
+
+/* Custom scrollbar for webkit browsers */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: hsl(var(--muted) / 0.5);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.7);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary));
+}
+
+/* Apply custom scrollbar to ScrollArea in enhanced-sidebar if needed, or globally */
+/* For example, if ScrollArea is used within SidebarContent */
+[data-sidebar="content"] > div[data-radix-scroll-area-viewport] {
+  @apply custom-scrollbar;
+}
+/* Or if you want to apply to all scroll areas */
+/* .dark ::-webkit-scrollbar { ... } */
+
+
