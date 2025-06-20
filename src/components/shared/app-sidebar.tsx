@@ -35,14 +35,14 @@ const navItems = [
   { href: '/study', label: 'Study Sessions', icon: BookOpen },
   { href: '/notes', label: 'My Notes', icon: FileText },
   { href: '/tasks', label: 'Tasks', icon: ListChecks },
-  { href: '/resources', label: 'Resources', icon: Briefcase }, 
-  { href: '/ai-assistant', label: 'AI Assistant', icon: MessageCircle }, 
+  { href: '/resources', label: 'Resources', icon: Briefcase },
+  { href: '/ai-assistant', label: 'AI Assistant', icon: MessageCircle },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { state: sidebarState } = useSidebar(); 
+  const { state: sidebarState } = useSidebar();
 
   const handleStartSession = () => {
     router.push('/study');
@@ -61,8 +61,8 @@ export function AppSidebar() {
 
       <SidebarContent className="flex flex-col p-2 gap-4">
         <div className="px-2 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
-           <Button 
-            variant="default" 
+           <Button
+            variant="default"
             className="w-full h-10 shadow-3d-lift group-data-[collapsible=icon]:w-12 group-data-[collapsible=icon]:h-12 group-data-[collapsible=icon]:p-0"
             onClick={handleStartSession}
             aria-label="Start Study Session"
@@ -80,12 +80,11 @@ export function AppSidebar() {
                   asChild
                   isActive={pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))}
                   tooltip={item.label}
-                  // shortcut prop removed
                   className="group-data-[collapsible=icon]:justify-center"
                 >
-                  <a> {/* Content is now icon then label */}
-                    <item.icon className="h-5 w-5 text-muted-foreground group-hover:text-sidebar-primary group-data-[active=true]:text-primary" />
-                    <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                  <a>
+                    <item.icon className="h-5 w-5 text-muted-foreground group-hover:text-sidebar-primary group-data-[active=true]:text-primary flex-shrink-0" />
+                    <span className="group-data-[collapsible=icon]:hidden min-w-0 truncate">{item.label}</span>
                   </a>
                 </SidebarMenuButton>
               </Link>
@@ -99,7 +98,7 @@ export function AppSidebar() {
           <span>Study Streak: 7 🔥</span>
         </div>
         <Separator className="my-2 bg-sidebar-border group-data-[collapsible=icon]:hidden" />
-        
+
         <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:py-2">
           <Avatar className="h-9 w-9 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10">
             <AvatarImage src="https://placehold.co/40x40.png" alt="User avatar" data-ai-hint="person minimalist" />
@@ -117,8 +116,8 @@ export function AppSidebar() {
                 className="group-data-[collapsible=icon]:justify-center"
             >
                 <a>
-                    <Settings className="h-5 w-5 text-muted-foreground group-hover:text-sidebar-primary group-data-[active=true]:text-primary" />
-                    <span className="group-data-[collapsible=icon]:hidden">Settings</span>
+                    <Settings className="h-5 w-5 text-muted-foreground group-hover:text-sidebar-primary group-data-[active=true]:text-primary flex-shrink-0" />
+                    <span className="group-data-[collapsible=icon]:hidden min-w-0 truncate">Settings</span>
                 </a>
             </SidebarMenuButton>
         </Link>
