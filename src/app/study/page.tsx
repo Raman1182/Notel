@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { AppHeader } from '@/components/shared/app-header'; 
 import { Maximize2, Minimize2, Pause, Play, Settings2, Volume2, VolumeX } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
-import { SidebarProvider } from '@/components/ui/enhanced-sidebar';
 import { Textarea } from '@/components/ui/textarea';
+import { SettingsProvider } from '@/components/settings-provider'; // Added for consistency
 
 const DigitalTimer = () => {
   const [time, setTime] = useState(0); // time in seconds
@@ -79,9 +79,9 @@ export default function StudySessionPage() {
   const toggleFocusMode = () => setIsFocusMode(prev => !prev);
 
   return (
-    <SidebarProvider>
+    <SettingsProvider> {/* Ensure settings context is available if AppHeader uses it */}
       <div className="flex flex-col h-screen bg-background text-foreground">
-        <AppHeader /> {/* Or a more minimal study-specific header */}
+        <AppHeader />
         
         <div className={`flex-1 grid grid-cols-1 md:grid-cols-2 gap-0 transition-opacity duration-500 ${isFocusMode ? 'opacity-50 [&>*:not(.focused-area)]:opacity-30' : 'opacity-100'}`}>
           {/* PDF/Document Viewer Area */}
@@ -106,6 +106,6 @@ export default function StudySessionPage() {
 
         <FloatingControlBar onToggleFocus={toggleFocusMode} isFocusMode={isFocusMode} />
       </div>
-    </SidebarProvider>
+    </SettingsProvider>
   );
 }

@@ -40,16 +40,6 @@ body {
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
-
-    /* Light theme sidebar (not primary for LearnLog but good to have) */
-    --sidebar-background: 0 0% 98%; /* Light grey */
-    --sidebar-foreground: 240 5.3% 26.1%; /* Darker text */
-    --sidebar-primary: 202 83% 51%; /* Electric Blue */
-    --sidebar-primary-foreground: 0 0% 100%; /* White */
-    --sidebar-accent: 0 0% 92%; /* Lighter grey for hover */
-    --sidebar-accent-foreground: 240 5.9% 10%; /* Darker text for hover */
-    --sidebar-border: 0 0% 90%; /* Subtle border */
-    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {
@@ -91,26 +81,11 @@ body {
     --chart-3: 36 91% 60%;  /* Lighter Amber */
     --chart-4: 300 70% 60%; /* A purple */
     --chart-5: 50 80% 60%;  /* An orange */
-
-    /* Sidebar colors for glass morphism dark theme */
-    --sidebar-background: 0 0% 100% / 0.05; /* White 5% opacity */
-    --sidebar-foreground: 0 0% 95%; /* White text (slightly off-white) */
-    --sidebar-primary: 202 83% 51%; /* Electric Blue (for active item text & border) */
-    --sidebar-primary-foreground: 202 83% 51%; /* Electric Blue (text color for active) */
-    --sidebar-accent: 202 83% 51% / 0.1; /* Electric Blue 10% opacity for hover */
-    --sidebar-accent-foreground: 202 83% 51%; /* Electric Blue text for hover (or primary) */
-    --sidebar-border: 0 0% 100% / 0.1; /* White 10% opacity for border */
-    --sidebar-ring: 202 83% 51%; /* Electric Blue for focus rings */
   }
 
   .high-contrast.dark {
     /* Example high contrast overrides: less transparency, stronger definition */
     --card: 0 0% 8%; /* More solid card */
-    /* Potentially remove backdrop-blur effects for high-contrast if they hinder readability */
-    --sidebar-background: 0 0% 5%; /* Darker, less transparent for high contrast */
-    --sidebar-border: 0 0% 20%; /* More visible border */
-    --sidebar-accent: 202 83% 51% / 0.2; /* Stronger hover */
-
   }
 }
 
@@ -194,10 +169,8 @@ body {
 
 /* Apply custom scrollbar to ScrollArea in enhanced-sidebar if needed, or globally */
 /* For example, if ScrollArea is used within SidebarContent */
-[data-sidebar="content"] > div[data-radix-scroll-area-viewport] {
+/* [data-sidebar="content"] > div[data-radix-scroll-area-viewport] {
   @apply custom-scrollbar;
-}
+} */
 /* Or if you want to apply to all scroll areas */
 /* .dark ::-webkit-scrollbar { ... } */
-
-
