@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState } from 'react'; // Added missing import
 import { Button } from '@/components/ui/button';
 import { Link2, ExternalLink, Trash2, Loader2, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
