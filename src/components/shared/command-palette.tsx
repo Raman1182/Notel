@@ -1,14 +1,14 @@
 
 'use client';
 
-import * as React from 'react'; // Added React import
+import * as React from 'react'; 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'; // Added DialogTitle
 import { Input } from '@/components/ui/input';
 import { commandPaletteActions, type CommandAction } from '@/config/command-palette-actions';
 import { useRouter } from 'next/navigation';
 import { ScrollArea } from '../ui/scroll-area';
-import { Loader2, Lightbulb, History, Wand2 } from 'lucide-react'; // Added icons
+import { Loader2, Lightbulb, History, Wand2 } from 'lucide-react'; 
 import { smartSearchFlow, type SmartSearchInput, type SmartSearchOutput } from '@/ai/flows/smart-search-flow';
 import { useToast } from '@/hooks/use-toast';
 
@@ -208,14 +208,13 @@ export function CommandPalette() {
     }
 
     if (!items || items.length === 0) {
-      if (emptyText && searchTerm) { // Only show empty text if there's a search term and items are expected
+      if (emptyText && searchTerm) { 
          return (
             <div className="px-3 py-2">
                 <div className="flex items-center text-xs font-semibold text-muted-foreground tracking-wider mb-2">
                     {React.createElement(icon, { className: "h-4 w-4 mr-2" })}
                     {title}
                 </div>
-                {/* <p className="p-2 text-sm text-center text-muted-foreground">{emptyText}</p> */}
             </div>
          );
       }
@@ -229,7 +228,6 @@ export function CommandPalette() {
           {title}
         </div>
         {items.map((action, index) => {
-          // Calculate global index for selection
           let globalIndex = 0;
           if (items === aiSuggestions) globalIndex = index;
           else if (items === recentItems) globalIndex = aiSuggestions.length + index;
@@ -238,7 +236,7 @@ export function CommandPalette() {
           const ActionIcon = action.icon;
           return (
             <button
-              key={action.id + '-' + index} // Ensure unique keys if IDs repeat across sections
+              key={action.id + '-' + index} 
               id={`action-item-${globalIndex}`}
               onClick={() => handleAction(action)}
               className={`w-full text-left flex items-center gap-3 p-2.5 mx-1 rounded-md transition-colors duration-100 ease-in-out
@@ -259,6 +257,7 @@ export function CommandPalette() {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="p-0 max-w-2xl w-[95vw] sm:w-full bg-popover/80 backdrop-blur-xl border-border shadow-2xl rounded-xl overflow-hidden flex flex-col max-h-[80vh]">
+        <DialogTitle className="sr-only">Command Palette</DialogTitle>
         <div className="p-3 border-b border-border">
           <Input
             ref={inputRef}
@@ -303,4 +302,3 @@ export function CommandPalette() {
     </Dialog>
   );
 }
-
