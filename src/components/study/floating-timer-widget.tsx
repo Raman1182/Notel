@@ -37,12 +37,12 @@ export function FloatingTimerWidget({
       className={cn(
         "fixed top-5 right-5 z-50 flex items-center justify-center p-2 rounded-full bg-background/80 backdrop-blur-md shadow-xl border border-border",
         "transition-all duration-300 ease-out",
-        isRunning && "animate-pulse-subtle ring-2 ring-primary ring-offset-2 ring-offset-background",
+        // isRunning && "animate-pulse-subtle ring-2 ring-primary ring-offset-2 ring-offset-background", // pulse can be distracting
         className
       )}
     >
-      <div className="flex items-center space-x-2"> {/* Reduced space for more compact look */}
-        <span className="text-base font-mono font-medium text-foreground tabular-nums min-w-[50px] sm:min-w-[60px] text-center px-1"> {/* Adjusted padding and size */}
+      <div className="flex items-center space-x-2">
+        <span className="text-base font-mono font-medium text-foreground tabular-nums min-w-[50px] sm:min-w-[60px] text-center px-1">
           {formatTime(timeInSeconds)}
         </span>
         <Button

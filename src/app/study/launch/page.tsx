@@ -30,12 +30,12 @@ const ambientSoundsData = [
   { name: 'Library', icon: <Music2 className="h-4 w-4 mr-2" /> },
 ];
 
-interface SessionData {
+export interface SessionData {
   sessionId: string;
   subject: string;
-  duration: number;
+  duration: number; // in minutes
   ambientSound: string;
-  startTime: number;
+  startTime: number; // timestamp
 }
 
 const StudySessionLauncherPage: NextPage = () => {
@@ -71,32 +71,40 @@ const StudySessionLauncherPage: NextPage = () => {
     };
 
     try {
-      // Save session data
       localStorage.setItem(`learnlog-session-${sessionId}`, JSON.stringify(sessionData));
 
-      // Add to sessions index
       const sessionsIndexJSON = localStorage.getItem('learnlog-sessions-index');
       let sessionsIndex: string[] = sessionsIndexJSON ? JSON.parse(sessionsIndexJSON) : [];
-      sessionsIndex = [sessionId, ...sessionsIndex.filter(id => id !== sessionId)].slice(0, 10); // Keep last 10 unique
+      sessionsIndex = [sessionId, ...sessionsIndex.filter(id => id !== sessionId)].slice(0, 10); 
       localStorage.setItem('learnlog-sessions-index', JSON.stringify(sessionsIndex));
       
-      // Initial empty notes for the session
-      localStorage.setItem(`learnlog-session-${sessionId}-notes`, '');
+      // Initialize tree structure for the session
+      const initialTree = [
+        { 
+          id: 'root', 
+          name: sessionSubject, 
+          type: 'subject' as const, 
+          children: [
+            { id: `${Date.now()}-default-note`, name: 'Session Note', type: 'note' as const, children: [], parentId: 'root' }
+          ], 
+          parentId: null 
+        }
+      ];
+      localStorage.setItem(`learnlog-session-${sessionId}-tree`, JSON.stringify(initialTree));
+      localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify({[`${Date.now()}-default-note`]: ''}));
+
+
       localStorage.setItem(`learnlog-session-${sessionId}-timer`, '0');
       localStorage.setItem(`learnlog-session-${sessionId}-running`, 'true');
 
-
     } catch (error) {
       console.error("Failed to save session to localStorage", error);
-      // Optionally, show a toast to the user
       setIsLoading(false);
       return;
     }
 
-    // Simulate loading animation and fade out (actual fade out needs CSS/Framer)
     setTimeout(() => {
       router.push(`/study/${sessionId}`);
-      // setIsLoading will be reset on page navigation
     }, 300); 
   };
 
@@ -176,8 +184,8 @@ const StudySessionLauncherPage: NextPage = () => {
               </Button>
             ))}
             <Button
-              variant={selectedDuration === 0 ? 'default' : 'outline'} // Assuming 0 or null means custom
-              onClick={() => setSelectedDuration(0)} // Placeholder for custom logic
+              variant={selectedDuration === 0 ? 'default' : 'outline'} 
+              onClick={() => setSelectedDuration(0)} 
               className={cn(
                 "flex flex-col h-auto py-2 border-white/20",
                 selectedDuration !== 0 && "bg-white/10 hover:bg-primary/20 text-foreground-opacity-70 hover:text-foreground",
@@ -214,8 +222,8 @@ const StudySessionLauncherPage: NextPage = () => {
         <Button
           size="lg"
           onClick={handleStartSession}
-          disabled={isLoading}
-          className="w-full max-w-md h-14 text-xl font-semibold bg-gradient-to-r from-primary to-sky-400 hover:from-primary/90 hover:to-sky-400/90 shadow-3d-lift hover:shadow-lg transition-all duration-300 ease-out group disabled:opacity-70"
+          disabled={isLoading || subject.trim() === ''}
+          className="w-full max-w-md h-14 text-xl font-semibold bg-gradient-to-r from-primary to-sky-400 hover:from-primary/90 hover:to-sky-400/90 shadow-3d-lift hover:shadow-lg transition-all duration-300 ease-out group disabled:opacity-70 disabled:cursor-not-allowed"
         >
           {isLoading ? <Loader2 className="h-6 w-6 animate-spin mr-2" /> : <Play className="h-6 w-6 mr-2 transform transition-transform group-hover:scale-110" />}
           {isLoading ? "Starting..." : "Start Session"}

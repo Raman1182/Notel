@@ -2,53 +2,45 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, FileText, FolderOpen, FolderClosed, BookText, Sparkles, History, Settings, ChevronsLeftRight } from 'lucide-react';
+import { ChevronDown, FileText, FolderOpen, FolderClosed, BookText, Sparkles, History, Settings, ChevronsLeftRight, PlusSquare, Edit3, Trash2, Dot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { ScrollArea } from '../ui/scroll-area';
 
-interface TreeItemData {
+export interface TreeNode {
   id: string;
-  label: string;
-  iconType?: 'H1' | 'H2' | 'H3' | 'FILE';
-  children?: TreeItemData[];
+  name: string;
+  type: 'subject' | 'title' | 'subheading' | 'note';
+  children?: TreeNode[];
+  parentId: string | null; 
 }
 
-// Sample static tree data, to be made dynamic later
-const sampleSubTreeData: TreeItemData[] = [
-  { 
-    id: 'chap1', 
-    label: 'Chapter 1: Introduction', 
-    iconType: 'H2', 
-    children: [
-      { id: 'chap1-intro', label: 'Overview', iconType: 'H3' },
-      { id: 'chap1-concepts', label: 'Key Concepts', iconType: 'FILE' },
-    ]
-  },
-  { 
-    id: 'chap2', 
-    label: 'Chapter 2: Core Mechanics', 
-    iconType: 'H2',
-  },
-  { id: 'session-note', label: 'General Session Note', iconType: 'FILE' },
-];
-
-const IconMap: Record<Required<TreeItemData>['iconType'], React.ElementType> = {
-  H1: BookText, 
-  H2: FolderOpen,
-  H3: ChevronRight,
-  FILE: FileText,
+const TypeIconMap: Record<TreeNode['type'], React.ElementType> = {
+  subject: BookText,
+  title: FolderOpen, 
+  subheading: FolderOpen, 
+  note: FileText,
 };
 
-const TreeItemDisplay: React.FC<{ item: TreeItemData; level: number; onSelect: (id: string) => void; activeId: string | null }> = ({ item, level, onSelect, activeId }) => {
-  const [isOpen, setIsOpen] = useState(level < 1); 
+
+interface TreeItemDisplayProps {
+  item: TreeNode;
+  level: number;
+  onSelectNode: (id: string, type: TreeNode['type']) => void;
+  activeNodeId: string | null;
+  onAddNode: (parentId: string | null, type: 'title' | 'subheading' | 'note') => void;
+  // Add rename/delete handlers later
+}
+
+const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelectNode, activeNodeId, onAddNode }) => {
+  const [isOpen, setIsOpen] = useState(level < 1 || item.type === 'subject'); // Auto-open subject and first level titles
   
   const hasChildren = item.children && item.children.length > 0;
-  let ItemIcon = IconMap[item.iconType || 'FILE'];
+  let ItemIcon = TypeIconMap[item.type];
 
-  if (item.iconType === 'H2' && hasChildren) {
+  if ((item.type === 'title' || item.type === 'subheading') && hasChildren) {
     ItemIcon = isOpen ? FolderOpen : FolderClosed;
-  } else if (hasChildren && item.iconType === 'H3') {
-     ItemIcon = ChevronRight; // Keep as chevron for H3, or specific icon if needed
+  } else if (item.type === 'subject') {
+    ItemIcon = BookText; // Always book for subject root
   }
 
 
@@ -60,40 +52,52 @@ const TreeItemDisplay: React.FC<{ item: TreeItemData; level: number; onSelect: (
   };
   
   const handleSelect = () => {
-    onSelect(item.id);
-    if (hasChildren && !isOpen) { // Only open if not already open on select
+    onSelectNode(item.id, item.type);
+    if (hasChildren && !isOpen && item.type !== 'note') { 
         setIsOpen(true);
-    } else if (hasChildren && isOpen && item.iconType !== 'H1') { // allow H1 to re-toggle
-        // If it's already open and has children (and not H1), selecting again does not close it.
-        // To make it toggle open/close on re-select, add: setIsOpen(!isOpen);
     }
+  };
+
+  const handleAddChild = (e: React.MouseEvent, childType: 'title' | 'subheading' | 'note') => {
+    e.stopPropagation();
+    onAddNode(item.id, childType);
+    if (!isOpen) setIsOpen(true); // Open parent if adding child
   };
 
   return (
     <div>
       <div 
-        className={`flex items-center py-1.5 pr-2 group cursor-pointer rounded-md text-sm
-                    transition-colors duration-100 ease-in-out
-                    ${activeId === item.id ? 'bg-primary/20 text-primary' : 'hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100'}`}
-        style={{ paddingLeft: `${0.5 + level * 1}rem` }}
+        className={`flex items-center py-1.5 pr-1 group cursor-pointer rounded-md text-sm
+                    transition-colors duration-100 ease-in-out relative
+                    ${activeNodeId === item.id ? 'bg-primary/20 text-primary' : 'hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100'}`}
+        style={{ paddingLeft: `${0.5 + level * 0.8}rem` }} // Reduced indent factor
         onClick={handleSelect}
       >
-        {hasChildren && item.iconType !== 'H1' ? ( // H1 (root) doesn't get its own chevron from this logic
-          <button onClick={handleToggleOpen} className="p-0.5 mr-1 rounded-sm hover:bg-white/20 focus:outline-none">
+        {hasChildren && item.type !== 'subject' ? (
+          <button onClick={handleToggleOpen} className="p-0.5 mr-1.5 rounded-sm hover:bg-white/20 focus:outline-none shrink-0">
             <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-0' : '-rotate-90'}`} />
           </button>
         ) : (
-           item.iconType !== 'H1' && <span className="w-4 mr-1.5 shrink-0"></span> // Space for non-children, non-H1
+           item.type !== 'subject' && <span className="w-4 mr-1.5 shrink-0"><Dot className="h-4 w-4 opacity-50"/></span> // Space for non-children non-subject, or use Dot
         )}
-        {/* Icon for H1 is handled by its wrapper */}
-        {item.iconType !== 'H1' && <ItemIcon className={`h-4 w-4 mr-2 shrink-0 ${item.iconType === 'H1' ? 'text-primary' : ''}`} />}
-        <span className="truncate flex-1 group-hover:text-foreground-opacity-100">{item.label}</span>
+        
+        <ItemIcon className={`h-4 w-4 mr-1.5 shrink-0 ${item.type === 'subject' ? 'text-primary' : ''}`} />
+        <span className="truncate flex-1 group-hover:text-foreground-opacity-100">{item.name}</span>
+
+        {/* Placeholder for add/edit/delete actions - shown on hover */}
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-0.5">
+          {item.type !== 'note' && (
+            <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 hover:bg-white/20" title={`Add note to ${item.name}`} onClick={(e) => handleAddChild(e, 'note')}>
+              <PlusSquare className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {/* Add other action buttons (edit, delete) here later */}
+        </div>
       </div>
       {isOpen && hasChildren && (
-        // For H1, children are indented normally. For others, slightly more.
-        <div className={`border-l border-white/10 ml-[calc(0.5rem_+_0.5rem_+_0.25rem)]`} style={{ paddingLeft: `${level === -1 ? 0 : 0.75}rem`}}>
+        <div className="border-l border-white/10 ml-[calc(0.5rem_+_0.5rem_+_0.25rem)]" style={{paddingLeft: `${item.type === 'subject' ? 0 : 0.5}rem`}}>
           {item.children?.map(child => (
-            <TreeItemDisplay key={child.id} item={child} level={level + 1} onSelect={onSelect} activeId={activeId} />
+            <TreeItemDisplay key={child.id} item={child} level={level + 1} onSelectNode={onSelectNode} activeNodeId={activeNodeId} onAddNode={onAddNode} />
           ))}
         </div>
       )}
@@ -103,20 +107,16 @@ const TreeItemDisplay: React.FC<{ item: TreeItemData; level: number; onSelect: (
 
 interface SessionSidebarProps {
   sessionSubject: string;
+  treeData: TreeNode[];
+  onSelectNode: (id: string, type: TreeNode['type']) => void;
+  activeNodeId: string | null;
+  onAddNode: (parentId: string | null, type: 'title' | 'subheading' | 'note') => void;
 }
 
-export function SessionSidebar({ sessionSubject }: SessionSidebarProps) {
-  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeNodeId, onAddNode }: SessionSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  // The overall session subject is now passed as a prop. 
-  // If we want an editable title within the sidebar for the session, it can be added.
-  // For now, using sessionSubject directly.
 
-  const handleSelectNote = (id: string) => {
-    setActiveNoteId(id);
-    // Here, you would typically load the content for the selected note/section into the main editor
-    console.log("Selected note/section ID:", id);
-  };
+  const rootNode = treeData.length > 0 && treeData[0].type === 'subject' ? treeData[0] : null;
 
   if (isCollapsed) {
     return (
@@ -125,43 +125,47 @@ export function SessionSidebar({ sessionSubject }: SessionSidebarProps) {
           <ChevronsLeftRight className="h-5 w-5 transform rotate-180" />
         </Button>
         <BookText className="h-6 w-6 text-primary cursor-pointer hover:opacity-80" title={sessionSubject || "Notebook"}/>
+        {/* Simplified icons for collapsed mode */}
+        <PlusSquare className="h-6 w-6 text-foreground-opacity-70 cursor-pointer hover:opacity-80" title="Add Note" onClick={() => onAddNode(rootNode?.id || null, 'note')}/>
         <Sparkles className="h-6 w-6 text-foreground-opacity-70 cursor-pointer hover:opacity-80" title="AI Tools"/>
-        <History className="h-6 w-6 text-foreground-opacity-70 cursor-pointer hover:opacity-80" title="Revision History"/>
         <Settings className="h-6 w-6 text-foreground-opacity-70 cursor-pointer hover:opacity-80 mt-auto" title="Session Settings"/>
       </div>
     );
   }
 
-  // Root node for the tree, using sessionSubject
-  const rootTreeItem: TreeItemData = {
-    id: 'session-root',
-    label: sessionSubject,
-    iconType: 'H1', // Represents the main subject/notebook
-    children: sampleSubTreeData, // Static children for now
-  };
-
   return (
-    <div className="w-[280px] h-full bg-[#0F0F0F] text-white p-4 flex flex-col shrink-0 overflow-y-auto custom-scrollbar transition-all duration-300 ease-in-out border-r border-white/10">
-      <div className="flex items-center justify-between mb-1">
-        {/* Displaying session subject as a non-editable title here, or could use an Input if desired */}
-        <div className="flex items-center gap-2 w-full mr-2">
+    <div className="w-[280px] h-full bg-[#0F0F0F] text-white p-3 flex flex-col shrink-0 overflow-y-hidden custom-scrollbar transition-all duration-300 ease-in-out border-r border-white/10">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2 w-full mr-1">
             <BookText className="h-5 w-5 text-primary flex-shrink-0" />
             <h2 className="text-lg font-semibold truncate" title={sessionSubject}>
                 {sessionSubject}
             </h2>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(true)} className="hover:bg-white/20 flex-shrink-0">
-          <ChevronsLeftRight className="h-5 w-5" />
-        </Button>
+        <div className="flex items-center">
+            <Button variant="ghost" size="icon" title="Add New Note to Subject" onClick={() => onAddNode(rootNode?.id || null, 'note')} className="hover:bg-white/20 h-7 w-7 p-1">
+                <PlusSquare className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(true)} className="hover:bg-white/20 h-7 w-7 p-1">
+                <ChevronsLeftRight className="h-5 w-5" />
+            </Button>
+        </div>
       </div>
-      <div className="flex-1 -ml-2"> {/* Negative margin to align TreeItemDisplay padding */}
-         <TreeItemDisplay 
-            item={rootTreeItem} 
-            level={-1} // Root level is special
-            onSelect={handleSelectNote} 
-            activeId={activeNoteId}
-          />
-      </div>
+      <ScrollArea className="flex-1 -ml-2 pr-1"> 
+         {rootNode && rootNode.children && rootNode.children.map(childNode => (
+             <TreeItemDisplay 
+                key={childNode.id}
+                item={childNode} 
+                level={0} 
+                onSelectNode={onSelectNode} 
+                activeNodeId={activeNodeId}
+                onAddNode={onAddNode}
+              />
+         ))}
+         {(!rootNode || !rootNode.children || rootNode.children.length === 0) && (
+            <p className="text-xs text-muted-foreground p-2 text-center">No notes yet. Click '+' to add.</p>
+         )}
+      </ScrollArea>
     </div>
   );
 }
