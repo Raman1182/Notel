@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { SessionSidebar, type TreeNode } from '@/components/study/session-sidebar';
 import { FloatingTimerWidget } from '@/components/study/floating-timer-widget';
-import { Paperclip, StickyNote, Loader2, X, Settings, Zap, CheckSquare, ChevronDown } from 'lucide-react';
-import type { SessionData } from '@/app/study/launch/page'; 
+import { Paperclip, StickyNote, Loader2, X, Settings, Zap, CheckSquare, ChevronDown, Sparkles, Brain, MessageSquare, FileText } from 'lucide-react';
+import type { SessionData } from '@/app/study/launch/page';
+import { processText, type ProcessTextInput } from '@/ai/flows/process-text-flow';
+import { useToast } from '@/hooks/use-toast';
 
 // Debounce utility
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
@@ -28,6 +30,7 @@ function StudySessionPageContent() {
   const params = useParams();
   const router = useRouter();
   const sessionId = params.sessionId as string;
+  const { toast } = useToast();
 
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
@@ -38,6 +41,7 @@ function StudySessionPageContent() {
 
   const [isReferencePanelOpen, setIsReferencePanelOpen] = useState(false);
   const [showAiButtons, setShowAiButtons] = useState(false);
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
 
   const [sessionTime, setSessionTime] = useState(0);
   const [isSessionRunning, setIsSessionRunning] = useState(true);
@@ -57,26 +61,40 @@ function StudySessionPageContent() {
         setNotebookTitle(parsedSessionData.subject); 
 
         const storedTreeJSON = localStorage.getItem(`learnlog-session-${sessionId}-tree`);
-        const parsedTreeData: TreeNode[] = storedTreeJSON ? JSON.parse(storedTreeJSON) : [{ id: 'root', name: parsedSessionData.subject, type: 'subject', children: [], parentId: null }];
+        const defaultRootNode: TreeNode = { id: 'root', name: parsedSessionData.subject, type: 'subject', children: [], parentId: null };
+        const defaultNoteId = `${Date.now()}-default-note-${Math.random().toString(16).slice(2)}`;
+        const defaultNoteNode: TreeNode = { id: defaultNoteId, name: 'Session Note', type: 'note', children: [], parentId: 'root' };
+        
+        let parsedTreeData: TreeNode[] = storedTreeJSON ? JSON.parse(storedTreeJSON) : [{ ...defaultRootNode, children: [defaultNoteNode] }];
+        if (parsedTreeData.length === 0 || parsedTreeData[0].type !== 'subject') {
+            parsedTreeData = [{ ...defaultRootNode, children: [defaultNoteNode] }];
+        }
         setTreeData(parsedTreeData);
         
         const storedNotesContentJSON = localStorage.getItem(`learnlog-session-${sessionId}-notesContent`);
-        const parsedNotesContent: Record<string, string> = storedNotesContentJSON ? JSON.parse(storedNotesContentJSON) : {};
+        const parsedNotesContent: Record<string, string> = storedNotesContentJSON ? JSON.parse(storedNotesContentJSON) : { [defaultNoteId]: '' };
         setNotesContent(parsedNotesContent);
 
         const firstNoteInTree = findFirstNoteRecursive(parsedTreeData);
         if (firstNoteInTree) {
           setActiveNoteId(firstNoteInTree.id);
           setCurrentNoteContent(parsedNotesContent[firstNoteInTree.id] || '');
-        } else {
-          // Auto-select the first note child of the root if it exists
-          const rootNode = parsedTreeData.find(node => node.type === 'subject');
-          const firstChildNote = rootNode?.children?.find(child => child.type === 'note');
-          if (firstChildNote) {
+        } else if (parsedTreeData[0]?.children?.length > 0 && parsedTreeData[0].children[0].type === 'note') {
+            const firstChildNote = parsedTreeData[0].children[0];
             setActiveNoteId(firstChildNote.id);
             setCurrentNoteContent(parsedNotesContent[firstChildNote.id] || '');
-          }
+        } else {
+           // If no notes, create one if root exists
+            if (parsedTreeData.length > 0 && parsedTreeData[0].id === 'root') {
+                const newNoteId = `${Date.now()}-initial-note`;
+                const newNote: TreeNode = { id: newNoteId, name: "My First Note", type: 'note', parentId: 'root' };
+                setTreeData(prevTree => [{ ...prevTree[0], children: [...(prevTree[0].children || []), newNote] }]);
+                setNotesContent(prevNotes => ({ ...prevNotes, [newNoteId]: '' }));
+                setActiveNoteId(newNoteId);
+                setCurrentNoteContent('');
+            }
         }
+
 
         const savedTime = localStorage.getItem(`learnlog-session-${sessionId}-timer`);
         if (savedTime) setSessionTime(parseInt(savedTime, 10));
@@ -86,16 +104,17 @@ function StudySessionPageContent() {
 
       } else {
         console.error("Session data not found for ID:", sessionId);
-        // Consider redirecting or showing a more user-friendly error
+        toast({ title: "Error", description: "Session data not found.", variant: "destructive" });
         router.push('/study/launch'); 
       }
     } catch (error) {
       console.error("Error loading session data:", error);
+      toast({ title: "Error", description: "Could not load session data.", variant: "destructive" });
       router.push('/study/launch');
     } finally {
       setIsLoading(false);
     }
-  }, [sessionId, router]);
+  }, [sessionId, router, toast]);
 
   const findFirstNoteRecursive = (nodes: TreeNode[]): TreeNode | null => {
     for (const node of nodes) {
@@ -133,19 +152,16 @@ function StudySessionPageContent() {
   }, [treeData, saveTreeToLocalStorage, isLoading]);
 
   useEffect(() => {
-    if (!isLoading && (Object.keys(notesContent).length > 0 || (activeNoteId && currentNoteContent !== (notesContent[activeNoteId] || '')))) {
-        saveNotesContentToLocalStorage(notesContent);
-    }
-  }, [notesContent, saveNotesContentToLocalStorage, isLoading, activeNoteId, currentNoteContent]);
-
-
-  useEffect(() => {
-    if (activeNoteId && !isLoading) {
-      if (currentNoteContent !== (notesContent[activeNoteId] || '')) {
+    if (!isLoading && activeNoteId && currentNoteContent !== (notesContent[activeNoteId] || '')) {
         setNotesContent(prev => ({ ...prev, [activeNoteId as string]: currentNoteContent }));
-      }
     }
   }, [currentNoteContent, activeNoteId, isLoading]);
+
+  useEffect(() => {
+    if (!isLoading && Object.keys(notesContent).length > 0) {
+        saveNotesContentToLocalStorage(notesContent);
+    }
+  }, [notesContent, saveNotesContentToLocalStorage, isLoading]);
 
 
   // Save timer state to localStorage
@@ -172,15 +188,18 @@ function StudySessionPageContent() {
   const toggleSessionRunning = () => setIsSessionRunning(prev => !prev);
 
   const handleEndSession = () => {
-    if (window.confirm("Are you sure you want to end this study session?")) {
+    if (window.confirm("Are you sure you want to end this study session? All notes will be saved.")) {
       setIsSessionRunning(false);
+      // Ensure latest content is flushed to notesContent before saving
       if (activeNoteId) {
-          const finalNotes = { ...notesContent, [activeNoteId]: currentNoteContent };
-          localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(finalNotes));
+        const finalNotes = { ...notesContent, [activeNoteId]: currentNoteContent };
+        localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(finalNotes));
+      } else {
+        localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(notesContent));
       }
       if (treeData.length > 0) localStorage.setItem(`learnlog-session-${sessionId}-tree`, JSON.stringify(treeData));
       localStorage.setItem(`learnlog-session-${sessionId}-timer`, sessionTime.toString());
-      localStorage.setItem(`learnlog-session-${sessionId}-running`, 'false');
+      localStorage.setItem(`learnlog-session-${sessionId}-running`, 'false'); // Explicitly set to false
       router.push('/'); 
     }
   };
@@ -190,21 +209,23 @@ function StudySessionPageContent() {
   const handleNoteSelect = (nodeId: string, nodeType: TreeNode['type']) => {
     if (nodeType === 'note') {
       if (activeNoteId && activeNoteId !== nodeId && currentNoteContent !== (notesContent[activeNoteId] || '')) {
-        // Save current note before switching
-        setNotesContent(prev => ({ ...prev, [activeNoteId as string]: currentNoteContent }));
+        // Save current note before switching (direct save, not debounced)
+         setNotesContent(prev => {
+            const updatedNotes = { ...prev, [activeNoteId as string]: currentNoteContent };
+            localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(updatedNotes));
+            return updatedNotes;
+        });
       }
       setActiveNoteId(nodeId);
       setCurrentNoteContent(notesContent[nodeId] || '');
     } else {
-      // If selecting a folder-like item, you might want to clear the editor or show a placeholder
-      setActiveNoteId(nodeId); // Still track active selection for context
-      // setCurrentNoteContent(''); // Or some placeholder text
+      setActiveNoteId(nodeId);
     }
   };
 
   const addNodeToTree = (parentId: string | null, type: 'title' | 'subheading' | 'note', name: string) => {
     if (!name || name.trim() === '') {
-        console.warn("Node name cannot be empty."); // Use console.warn or toast for user feedback
+        toast({ title: "Error", description: "Node name cannot be empty.", variant: "destructive" });
         return;
     }
 
@@ -212,22 +233,27 @@ function StudySessionPageContent() {
       id: `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       name: name.trim(),
       type,
-      children: type === 'note' ? undefined : [], 
+      children: (type === 'note' || type === 'subject') ? [] : [], // subjects can have children, notes cannot
       parentId: parentId,
     };
+    if (type === 'subject') newNode.children = []; // ensure subject can have children
 
     if (type === 'note') {
-      setNotesContent(prev => ({ ...prev, [newNode.id]: '' })); // Initialize empty content for new note
+      setNotesContent(prev => ({ ...prev, [newNode.id]: '' }));
     }
     
     const updateTreeRecursively = (nodes: TreeNode[], pId: string | null): TreeNode[] => {
-      if (pId === null || pId === 'root') { // Adding to root
-        if (nodes.length > 0 && nodes[0].id === 'root' && nodes[0].type === 'subject') {
-          const rootNode = nodes[0];
-          return [{...rootNode, children: [...(rootNode.children || []), newNode]}];
+      if (pId === null ) { // Adding to root if tree is empty or pId is explicitly null
+        if (nodes.length > 0 && nodes[0].id === 'root' && nodes[0].type === 'subject') { // Common case: adding to existing root
+            const rootNode = nodes[0];
+            return [{ ...rootNode, children: [...(rootNode.children || []), newNode] }];
         }
-        return [...nodes, newNode]; // Should not happen if root always exists
+        // This case should ideally not be hit if a root subject node always exists.
+        // If it's a new tree, the first node should be a subject.
+        // For simplicity, we assume parentId 'root' is always the first node.
+        return [...nodes, newNode]; 
       }
+
       return nodes.map(node => {
         if (node.id === pId) {
           return { ...node, children: [...(node.children || []), newNode] };
@@ -239,11 +265,39 @@ function StudySessionPageContent() {
       });
     };
     
-    setTreeData(prevTree => updateTreeRecursively(prevTree, parentId));
+    setTreeData(prevTree => updateTreeRecursively(prevTree, parentId || 'root')); // Default to 'root' if parentId is null
   };
   
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCurrentNoteContent(e.target.value);
+  };
+
+  const handleAiAction = async (actionType: 'explain' | 'summarize' | 'expand') => {
+    if (!activeNoteId || !currentNoteContent.trim()) {
+      toast({ title: "Info", description: "Please select a note with content to process.", variant: "default" });
+      return;
+    }
+    setIsAiProcessing(true);
+    const currentActiveNodeDetails = activeNoteId ? findNodeByIdRecursive(treeData, activeNoteId) : null;
+    const context = `${notebookTitle}${currentActiveNodeDetails ? ` - ${currentActiveNodeDetails.name}` : ''}`;
+
+    try {
+      const input: ProcessTextInput = {
+        action: actionType,
+        text: currentNoteContent,
+        context: context,
+      };
+      const result = await processText(input);
+      setCurrentNoteContent(prev => 
+        prev + `\n\n---\n**AI ${actionType.charAt(0).toUpperCase() + actionType.slice(1)}:**\n${result.processedText}\n---`
+      );
+      toast({ title: "AI Action Successful", description: `${actionType.charAt(0).toUpperCase() + actionType.slice(1)} complete.`, variant: "default" });
+    } catch (error) {
+      console.error(`Error during AI action (${actionType}):`, error);
+      toast({ title: "AI Error", description: `Could not ${actionType} content. Please try again.`, variant: "destructive" });
+    } finally {
+      setIsAiProcessing(false);
+    }
   };
 
 
@@ -278,7 +332,6 @@ function StudySessionPageContent() {
         <main className="flex-1 flex flex-col p-4 md:p-6 overflow-y-auto relative custom-scrollbar bg-[#0A0A0A]">
           
           <div className="flex items-center justify-between mb-4">
-             {/* Breadcrumb placeholder */}
             <div className="text-sm text-muted-foreground">
                 {notebookTitle} {activeNoteId && currentActiveNode ? `/ ${currentActiveNode.name}` : ''}
             </div>
@@ -295,7 +348,7 @@ function StudySessionPageContent() {
           </div>
 
 
-          <div className="flex flex-1 gap-4 min-h-0"> {/* Ensure parent has min-h-0 for flex children to shrink */}
+          <div className="flex flex-1 gap-4 min-h-0">
             <div 
               className="relative flex-1 h-full flex flex-col bg-[#0F0F0F] rounded-lg border border-white/10 shadow-inner"
             >
@@ -305,16 +358,22 @@ function StudySessionPageContent() {
                 value={isEditorActive ? currentNoteContent : ''}
                 onChange={handleTextareaChange}
                 onFocus={() => setShowAiButtons(isEditorActive)}
-                onBlur={() => setTimeout(() => setShowAiButtons(false), 200)} // Delay to allow clicking AI buttons
-                disabled={!isEditorActive}
+                onBlur={() => setTimeout(() => { if (!isAiProcessing) setShowAiButtons(false); }, 200)}
+                disabled={!isEditorActive || isAiProcessing}
               />
               {isEditorActive && (
                 <div 
-                    className={`flex items-center justify-end space-x-2 p-2 border-t border-white/10 rounded-b-md transition-opacity duration-200 ${showAiButtons ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                    className={`flex items-center justify-end space-x-2 p-2 border-t border-white/10 rounded-b-md transition-opacity duration-200 ${showAiButtons || isAiProcessing ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 >
-                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-primary/20 backdrop-blur-sm text-xs p-1.5 px-2 text-foreground-opacity-70 hover:text-foreground">✨ Explain</Button>
-                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-primary/20 backdrop-blur-sm text-xs p-1.5 px-2 text-foreground-opacity-70 hover:text-foreground">📋 Summarize</Button>
-                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-primary/20 backdrop-blur-sm text-xs p-1.5 px-2 text-foreground-opacity-70 hover:text-foreground">⤴️ Expand</Button>
+                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-primary/20 backdrop-blur-sm text-xs p-1.5 px-2 text-foreground-opacity-70 hover:text-foreground disabled:opacity-50" onClick={() => handleAiAction('explain')} disabled={isAiProcessing}>
+                    {isAiProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Brain className="h-3 w-3 mr-1" />} Explain
+                  </Button>
+                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-primary/20 backdrop-blur-sm text-xs p-1.5 px-2 text-foreground-opacity-70 hover:text-foreground disabled:opacity-50" onClick={() => handleAiAction('summarize')} disabled={isAiProcessing}>
+                    {isAiProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <MessageSquare className="h-3 w-3 mr-1" />} Summarize
+                  </Button>
+                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-primary/20 backdrop-blur-sm text-xs p-1.5 px-2 text-foreground-opacity-70 hover:text-foreground disabled:opacity-50" onClick={() => handleAiAction('expand')} disabled={isAiProcessing}>
+                    {isAiProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />} Expand
+                  </Button>
                 </div>
               )}
             </div>
@@ -333,7 +392,6 @@ function StudySessionPageContent() {
               </div>
             )}
           </div>
-          {/* Status Bar */}
           <div className="mt-3 text-xs text-muted-foreground text-right border-t border-white/10 pt-2 flex justify-between items-center">
               <span>Word Count: {wordCount}</span>
               <span>{saveStatus}</span>
@@ -369,4 +427,3 @@ export default function StudySessionPage() {
     </Suspense>
   );
 }
-
