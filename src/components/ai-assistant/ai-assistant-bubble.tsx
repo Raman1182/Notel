@@ -5,9 +5,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Lightbulb, Send, X, MessageSquare, Loader2 } from 'lucide-react'; // Added Loader2
-import { summarizeContent, type SummarizeContentInput } from '@/ai/flows/summarize-content';
-// Future: import { askGeneralAssistant, type GeneralAssistantInput } from '@/ai/flows/general-assistant-flow';
+import { Lightbulb, Send, X, MessageSquare, Loader2 } from 'lucide-react'; 
+import { studyBuddyFlow, type StudyBuddyInput } from '@/ai/flows/study-buddy-flow';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
 
@@ -23,33 +22,50 @@ export function AiAssistantBubble() {
   const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [mode, setMode] = useState<'chat' | 'summarize'>('chat'); // Default to chat
+  const [mode, setMode] = useState<'chat' | 'summarize'>('chat'); 
   const { toast } = useToast();
+  const [currentStudySubject, setCurrentStudySubject] = useState<string | undefined>(undefined);
+
 
   useEffect(() => {
     const handleOpenAiAssistant = (event?: CustomEvent) => {
       setIsOpen(true);
       setIsChatOpen(true);
       const detailMode = event?.detail?.mode || 'chat';
-      setMode(detailMode as 'chat' | 'summarize');
+      const detailText = event?.detail?.text;
+      const detailSubject = event?.detail?.subject || localStorage.getItem('learnlog-lastActiveSubject') || undefined;
 
+      setMode(detailMode as 'chat' | 'summarize');
+      setCurrentStudySubject(detailSubject);
+
+      let initialMessageText = 'Hello! I am LearnLog AI, your study buddy. How can I help you today? You can ask me questions, request explanations, or get study tips.';
+      if (detailMode === 'summarize') {
+        initialMessageText = 'Paste the content you want to summarize below, or describe what you need summarized.';
+        if (detailText) {
+            setInputValue(detailText);
+        } else {
+            setInputValue('');
+        }
+      } else {
+         setInputValue(''); // Clear input for general chat
+      }
+      
       setMessages([{ 
         id: 'initial', 
         type: 'system', 
-        text: detailMode === 'summarize' 
-              ? 'Paste the content you want to summarize below.' 
-              : 'Hello! I am your AI Study Assistant. How can I help you today? You can ask me questions or ask for explanations.' 
+        text: initialMessageText
       }]);
-
-      if (detailMode === 'summarize' && event?.detail?.text) {
-        setInputValue(event.detail.text);
-      } else {
-        setInputValue(''); // Clear input for general chat
-      }
     };
     window.addEventListener('open-ai-assistant', handleOpenAiAssistant as EventListener);
+    
+    // Attempt to get last active subject if bubble is opened generically
+    if (isOpen && !currentStudySubject) {
+        const lastSubject = localStorage.getItem('learnlog-lastActiveSubject');
+        if (lastSubject) setCurrentStudySubject(lastSubject);
+    }
+
     return () => window.removeEventListener('open-ai-assistant', handleOpenAiAssistant as EventListener);
-  }, []);
+  }, [isOpen]); // Added isOpen dependency
 
 
   const handleSubmit = async () => {
@@ -61,29 +77,39 @@ export function AiAssistantBubble() {
     setIsLoading(true);
 
     try {
-      // For now, all queries go to summarizeContent. 
-      // This would be expanded with a new flow for general assistance.
-      const input: SummarizeContentInput = { content: currentInput };
-      const result = await summarizeContent(input);
+      let aiMessageText = '';
+      if (mode === 'summarize') {
+        // For summarize mode, we'll actually use the studyBuddyFlow but frame the query as a summarization request.
+        // This allows the user to also ask for summarization of a topic if they don't paste text.
+        const input: StudyBuddyInput = { 
+            query: `Summarize this for me: ${currentInput}`, 
+            contextText: currentInput.length > 100 ? currentInput : undefined, // Heuristic: if input is long, it's likely the text to summarize
+            studySubject: currentStudySubject 
+        };
+        const result = await studyBuddyFlow(input);
+        aiMessageText = result.response;
+
+      } else { // mode === 'chat'
+        const input: StudyBuddyInput = { 
+            query: currentInput,
+            studySubject: currentStudySubject,
+            // contextText could be populated if user pastes larger chunks of text for discussion
+        };
+        const result = await studyBuddyFlow(input);
+        aiMessageText = result.response;
+      }
+      
       const aiMessage: Message = { 
         id: (Date.now() + 1).toString(), 
         type: 'ai', 
-        text: mode === 'summarize' ? result.summary : `I processed your query: "${currentInput.substring(0,50)}...". Here's a summary related to it: ${result.summary}` 
+        text: aiMessageText
       };
-      // In a real scenario with a general assistant:
-      // if (mode === 'summarize') {
-      //   const input: SummarizeContentInput = { content: currentInput };
-      //   const result = await summarizeContent(input);
-      //   aiMessage.text = result.summary;
-      // } else { // mode === 'chat'
-      //   const input: GeneralAssistantInput = { query: currentInput, context: "User's study notes/history" }; // context needs to be populated
-      //   const result = await askGeneralAssistant(input);
-      //   aiMessage.text = result.response;
-      // }
       setMessages(prev => [...prev, aiMessage]);
+
     } catch (error) {
       console.error('Error processing AI request:', error);
-      const errorMessage: Message = { id: (Date.now() + 1).toString(), type: 'system', text: 'Sorry, I had trouble processing your request. Please try again.' };
+      const errorMessageText = error instanceof Error ? error.message : 'Sorry, I had trouble processing your request. Please try again.';
+      const errorMessage: Message = { id: (Date.now() + 1).toString(), type: 'system', text: errorMessageText };
       setMessages(prev => [...prev, errorMessage]);
       toast({
         title: "AI Error",
@@ -98,13 +124,14 @@ export function AiAssistantBubble() {
   const toggleChat = () => {
     const newOpenState = !isOpen;
     setIsOpen(newOpenState);
-    if (newOpenState) { // if we are opening
+    if (newOpenState) { 
         setIsChatOpen(true);
-        setMode('chat'); // Default to chat when opened via bubble click
+        setMode('chat'); 
+        setCurrentStudySubject(localStorage.getItem('learnlog-lastActiveSubject') || undefined);
         setMessages([{ 
           id: 'initial', 
           type: 'system', 
-          text: 'Hello! I am your AI Study Assistant. How can I help you today?' 
+          text: 'Hello! I am LearnLog AI, your study buddy. How can I help you today?' 
         }]);
         setInputValue('');
     } else {
@@ -130,10 +157,14 @@ export function AiAssistantBubble() {
           <DialogHeader className="p-4 border-b border-border">
             <DialogTitle className="flex items-center gap-2 text-lg font-headline">
               <MessageSquare className="h-5 w-5 text-primary" />
-              AI Study Assistant
+              LearnLog AI
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              {mode === 'summarize' ? 'Paste content below to get a summary.' : 'Ask questions, get explanations, or paste content.'}
+              {mode === 'summarize' 
+                ? 'Need a summary? Paste your text or describe the topic.' 
+                : currentStudySubject 
+                ? `Your AI study buddy for ${currentStudySubject}. Ask me anything!`
+                : 'Your AI study buddy. Ask me anything!'}
             </DialogDescription>
           </DialogHeader>
           
@@ -146,22 +177,27 @@ export function AiAssistantBubble() {
                 }`}
               >
                 <div
-                  className={`max-w-[75%] rounded-xl px-4 py-2 text-sm ${
+                  className={`max-w-[85%] rounded-xl px-4 py-2.5 text-sm shadow-sm ${ // slightly increased max-width and padding
                     msg.type === 'user'
                       ? 'bg-primary text-primary-foreground'
                       : msg.type === 'ai'
                       ? 'bg-secondary text-secondary-foreground'
-                      : 'bg-muted text-muted-foreground text-center w-full'
+                      : 'bg-muted text-muted-foreground text-center w-full text-xs py-2' // System messages
                   }`}
                 >
-                  {msg.text}
+                  {msg.text.split('\n').map((line, index) => ( // Handle multi-line responses
+                    <span key={index}>
+                      {line}
+                      {index < msg.text.split('\n').length - 1 && <br />}
+                    </span>
+                  ))}
                 </div>
               </div>
             ))}
             {isLoading && (
                  <div className="flex justify-start">
                     <div className="max-w-[75%] rounded-lg px-4 py-3 text-sm bg-secondary text-secondary-foreground">
-                        <div className="flex items-center space-x-1">
+                        <div className="flex items-center space-x-1.5">
                             <span className="h-2 w-2 bg-muted-foreground rounded-full animate-wave-dot-1"></span>
                             <span className="h-2 w-2 bg-muted-foreground rounded-full animate-wave-dot-2"></span>
                             <span className="h-2 w-2 bg-muted-foreground rounded-full animate-wave-dot-3"></span>
@@ -171,10 +207,10 @@ export function AiAssistantBubble() {
             )}
           </ScrollArea>
 
-          <DialogFooter className="p-4 border-t border-border">
+          <DialogFooter className="p-3 border-t border-border">
             <div className="flex w-full items-center space-x-2">
               <Textarea
-                placeholder={mode === 'summarize' ? "Paste content to summarize..." : "Ask your AI assistant..."}
+                placeholder={mode === 'summarize' ? "Paste content or describe what to summarize..." : "Ask your study buddy..."}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => {
@@ -183,10 +219,10 @@ export function AiAssistantBubble() {
                     handleSubmit();
                   }
                 }}
-                className="flex-1 min-h-[40px] max-h-[120px] resize-none bg-input text-sm"
+                className="flex-1 min-h-[44px] max-h-[120px] resize-none bg-input text-sm rounded-lg" // Adjusted styles
                 rows={1}
               />
-              <Button type="submit" size="icon" onClick={handleSubmit} disabled={isLoading || !inputValue.trim()} aria-label="Send message">
+              <Button type="submit" size="icon" onClick={handleSubmit} disabled={isLoading || !inputValue.trim()} aria-label="Send message" className="h-11 w-11">
                 {isLoading ? <Loader2 className="h-5 w-5 animate-spin"/> : <Send className="h-5 w-5" />}
               </Button>
             </div>

@@ -103,6 +103,7 @@ function StudySessionPageContent() {
         const parsedSessionData: SessionData = JSON.parse(storedSessionDataJSON);
         setSessionData(parsedSessionData);
         setNotebookTitle(parsedSessionData.subject); 
+        localStorage.setItem('learnlog-lastActiveSubject', parsedSessionData.subject); // Save for AI Assistant context
 
         const storedTreeJSON = localStorage.getItem(`learnlog-session-${sessionId}-tree`);
         const defaultRootNode: TreeNode = { id: 'root', name: parsedSessionData.subject, type: 'subject', children: [], parentId: null };
@@ -223,7 +224,6 @@ function StudySessionPageContent() {
 
   const confirmEndSession = () => {
     setIsSessionRunning(false);
-    // Save current note content before ending
     if (activeNoteId) {
         const finalNotes = { ...notesContent, [activeNoteId]: currentNoteContent };
         localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(finalNotes));
@@ -232,18 +232,20 @@ function StudySessionPageContent() {
     }
     if (treeData.length > 0) localStorage.setItem(`learnlog-session-${sessionId}-tree`, JSON.stringify(treeData));
 
-    // Update session data with actual duration
     const storedSessionDataJSON = localStorage.getItem(`learnlog-session-${sessionId}`);
     if (storedSessionDataJSON) {
         const parsedSessionData: SessionData = JSON.parse(storedSessionDataJSON);
-        const actualDurationMinutes = Math.floor(sessionTime / 60); // Convert seconds to minutes
-        parsedSessionData.duration = actualDurationMinutes;
+        const actualDurationMinutes = Math.floor(sessionTime / 60); 
+        parsedSessionData.duration = actualDurationMinutes; // Save actual duration
         localStorage.setItem(`learnlog-session-${sessionId}`, JSON.stringify(parsedSessionData));
     }
 
     localStorage.setItem(`learnlog-session-${sessionId}-timer`, sessionTime.toString());
     localStorage.setItem(`learnlog-session-${sessionId}-running`, 'false');
+    localStorage.removeItem('learnlog-lastActiveSubject'); // Clear last active subject
+
     setShowEndSessionDialog(false);
+    toast({ title: "Session Ended", description: `${notebookTitle} session saved successfully. Total time: ${Math.floor(sessionTime/60)}m ${sessionTime%60}s.`});
     router.push('/');
   };
   
@@ -335,12 +337,13 @@ function StudySessionPageContent() {
       };
       const result = await processText(input);
       setCurrentNoteContent(prev => 
-        prev + `\n\n---\n**AI ${actionType.charAt(0).toUpperCase() + actionType.slice(1)}:**\n${result.processedText}\n---`
+        prev + `\n\n---\n**AI ${actionType.charAt(0).toUpperCase() + actionType.slice(1)} (${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }):**\n${result.processedText}\n---`
       );
       toast({ title: "AI Action Successful", description: `${actionType.charAt(0).toUpperCase() + actionType.slice(1)} complete.`, variant: "default" });
     } catch (error) {
       console.error(`Error during AI action (${actionType}):`, error);
-      toast({ title: "AI Error", description: `Could not ${actionType} content. Please try again.`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : `Could not ${actionType} content. Please try again.`;
+      toast({ title: "AI Error", description: errorMessage, variant: "destructive" });
     } finally {
       setIsAiProcessing(false);
     }
@@ -455,8 +458,7 @@ function StudySessionPageContent() {
           <AlertDialogHeader>
             <AlertDialogTitle>End Study Session?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to end this study session? All notes will be saved, and the timer will stop.
-              The actual time studied will be recorded.
+              Are you sure you want to end this study session? Your notes and actual study time will be saved.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -513,13 +515,13 @@ function StudySessionPageContent() {
                 <div 
                     className={`flex items-center justify-end space-x-2 p-2 border-t border-white/10 rounded-b-md transition-opacity duration-200 ${showAiButtons || isAiProcessing ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 >
-                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-primary/20 backdrop-blur-sm text-xs p-1.5 px-2 text-foreground-opacity-70 hover:text-foreground disabled:opacity-50" onClick={() => handleAiAction('explain')} disabled={isAiProcessing}>
+                  <Button size="sm" variant="ghost" className="bg-primary/10 hover:bg-primary/20 text-primary text-xs p-1.5 px-2 disabled:opacity-50" onClick={() => handleAiAction('explain')} disabled={isAiProcessing || !currentNoteContent.trim()}>
                     {isAiProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Brain className="h-3 w-3 mr-1" />} Explain
                   </Button>
-                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-primary/20 backdrop-blur-sm text-xs p-1.5 px-2 text-foreground-opacity-70 hover:text-foreground disabled:opacity-50" onClick={() => handleAiAction('summarize')} disabled={isAiProcessing}>
+                  <Button size="sm" variant="ghost" className="bg-primary/10 hover:bg-primary/20 text-primary text-xs p-1.5 px-2 disabled:opacity-50" onClick={() => handleAiAction('summarize')} disabled={isAiProcessing || !currentNoteContent.trim()}>
                     {isAiProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <MessageSquare className="h-3 w-3 mr-1" />} Summarize
                   </Button>
-                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-primary/20 backdrop-blur-sm text-xs p-1.5 px-2 text-foreground-opacity-70 hover:text-foreground disabled:opacity-50" onClick={() => handleAiAction('expand')} disabled={isAiProcessing}>
+                  <Button size="sm" variant="ghost" className="bg-primary/10 hover:bg-primary/20 text-primary text-xs p-1.5 px-2 disabled:opacity-50" onClick={() => handleAiAction('expand')} disabled={isAiProcessing || !currentNoteContent.trim()}>
                     {isAiProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />} Expand
                   </Button>
                 </div>
@@ -557,7 +559,7 @@ function StudySessionPageContent() {
                         <Button 
                             key={session.sessionId}
                             variant={selectedPreviousSessionIdForReference === session.sessionId ? "secondary" : "ghost"}
-                            className="w-full justify-start text-left h-auto py-2 px-3 mb-1.5 block"
+                            className="w-full justify-start text-left h-auto py-2 px-3 mb-1.5 block text-foreground hover:bg-primary/10"
                             onClick={() => setSelectedPreviousSessionIdForReference(session.sessionId)}
                         >
                             <span className="block font-medium text-sm truncate">{session.subject}</span>
