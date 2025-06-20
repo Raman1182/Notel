@@ -23,8 +23,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog"; // AlertDialogTrigger removed as it's not used directly here
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import Link from 'next/link';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -82,7 +81,6 @@ function StudySessionPageContent() {
   const [selectedPreviousSessionIdForReference, setSelectedPreviousSessionIdForReference] = useState<string | null>(null);
 
 
-  const [showAiButtons, setShowAiButtons] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [aiGeneratedContent, setAiGeneratedContent] = useState<string | null>(null);
   const [aiGeneratedContentType, setAiGeneratedContentType] = useState<'flashcards' | 'quiz' | null>(null);
@@ -266,6 +264,7 @@ function StudySessionPageContent() {
       if (activeNoteId && activeNoteId !== nodeId && currentNoteContent !== (notesContent[activeNoteId] || '')) {
          setNotesContent(prev => {
             const updatedNotes = { ...prev, [activeNoteId as string]: currentNoteContent };
+            // Immediate save on note switch
             localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(updatedNotes)); 
             return updatedNotes;
         });
@@ -273,6 +272,7 @@ function StudySessionPageContent() {
       setActiveNoteId(nodeId);
       setCurrentNoteContent(notesContent[nodeId] || '');
     } else {
+      // If selecting a non-note item (like a title or subject), save current note first
       if (activeNoteId && currentNoteContent !== (notesContent[activeNoteId] || '')) {
          setNotesContent(prev => {
             const updatedNotes = { ...prev, [activeNoteId as string]: currentNoteContent };
@@ -281,6 +281,7 @@ function StudySessionPageContent() {
         });
       }
       setActiveNoteId(nodeId); 
+      // setCurrentNoteContent(''); // Optionally clear content area or show placeholder for non-notes
     }
   };
 
@@ -296,19 +297,21 @@ function StudySessionPageContent() {
       children: (type === 'note' || type === 'subject') ? [] : [], 
       parentId: parentId,
     };
-    if (type === 'subject') newNode.children = [];
+    if (type === 'subject') newNode.children = []; // Subjects don't have children array if they are root
 
     if (type === 'note') {
       setNotesContent(prev => ({ ...prev, [newNode.id]: '' }));
     }
     
     const updateTreeRecursively = (nodes: TreeNode[], pId: string | null): TreeNode[] => {
-      if (pId === null ) { 
-        if (nodes.length > 0 && nodes[0].id === 'root' && nodes[0].type === 'subject') { 
+      if (pId === null ) { // Adding to the very root (should not happen if tree always starts with a subject)
+        // This case implies adding a new subject, typically not done this way in session.
+        // Assuming root is always treeData[0] and is the subject.
+        if (nodes.length > 0 && nodes[0].id === 'root' && nodes[0].type === 'subject') { // Should be `treeData[0].id`
             const rootNode = nodes[0];
             return [{ ...rootNode, children: [...(rootNode.children || []), newNode] }];
         }
-        return [...nodes, newNode]; 
+        return [...nodes, newNode]; // Fallback, should ideally not be reached
       }
       return nodes.map(node => {
         if (node.id === pId) {
@@ -320,7 +323,7 @@ function StudySessionPageContent() {
         return node;
       });
     };
-    setTreeData(prevTree => updateTreeRecursively(prevTree, parentId || 'root'));
+    setTreeData(prevTree => updateTreeRecursively(prevTree, parentId || 'root')); // parentId should usually be 'root' if adding to subject
   };
   
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -410,14 +413,16 @@ function StudySessionPageContent() {
         setIsReferencePanelOpen(true);
         setSelectedPreviousSessionIdForReference(null);
         if (sessionId) {
+            // Store PDF name and potentially data URI (if small enough) or a flag
             localStorage.setItem(`learnlog-session-${sessionId}-pdfName`, file.name);
+            // Consider localStorage size limits if storing data URIs
         }
       };
       reader.readAsDataURL(file);
     } else if (file) {
       toast({ title: "Invalid File", description: "Please select a PDF file.", variant: "destructive" });
     }
-    if (event.target) event.target.value = ''; 
+    if (event.target) event.target.value = ''; // Reset file input
   };
 
   const handleClearPdf = () => {
@@ -426,26 +431,28 @@ function StudySessionPageContent() {
     setIsReferencePanelOpen(false); 
     if (sessionId) {
         localStorage.removeItem(`learnlog-session-${sessionId}-pdfName`);
+        // also remove stored data URI if applicable
     }
   };
   
   const handleOpenPreviousNotes = () => {
     setReferencePanelMode('notes');
     setIsReferencePanelOpen(true);
-    setCurrentPdf(null);
-    setSelectedPreviousSessionIdForReference(null);
+    setCurrentPdf(null); // Clear any active PDF
+    setSelectedPreviousSessionIdForReference(null); // Reset selected session
 
+    // Load other sessions for reference panel
     const sessionsIndexJSON = localStorage.getItem('learnlog-sessions-index');
     if (sessionsIndexJSON) {
         const allIds: string[] = JSON.parse(sessionsIndexJSON);
         const otherSessionsData = allIds
-            .filter(id => id !== sessionId) 
+            .filter(id => id !== sessionId) // Exclude current session
             .map(id => {
                 const sessionJSON = localStorage.getItem(`learnlog-session-${id}`);
                 return sessionJSON ? JSON.parse(sessionJSON) as SessionData : null;
             })
             .filter(session => session !== null) as SessionData[];
-        setAllSessionsForReference(otherSessionsData.sort((a, b) => (b.startTime || 0) - (a.startTime || 0)));
+        setAllSessionsForReference(otherSessionsData.sort((a, b) => (b.startTime || 0) - (a.startTime || 0))); // Sort by most recent
     } else {
         setAllSessionsForReference([]);
     }
@@ -485,12 +492,14 @@ function StudySessionPageContent() {
   let saveStatus = 'No active note';
   if (activeNoteId) {
     const savedContent = notesContent[activeNoteId];
-    if (savedContent === undefined && currentNoteContent === '') { 
+    // Check if currentNoteContent exists and is different from saved.
+    // Also consider if savedContent is undefined (new note) vs empty string (cleared note).
+    if (savedContent === undefined && currentNoteContent === '') { // New, empty note
         saveStatus = 'Saved'; 
     } else if (savedContent === currentNoteContent) {
         saveStatus = 'Saved';
     } else {
-        saveStatus = 'Saving...';
+        saveStatus = 'Saving...'; // This indicates the debounce timer is active
     }
   }
 
@@ -570,14 +579,11 @@ function StudySessionPageContent() {
                 className="w-full flex-1 bg-transparent border-none rounded-t-md p-6 text-base resize-none focus:ring-0 focus:border-transparent font-code custom-scrollbar"
                 value={isEditorActive ? currentNoteContent : ''}
                 onChange={handleTextareaChange}
-                onFocus={() => setShowAiButtons(isEditorActive)}
-                onBlur={() => setTimeout(() => { if (!isAiProcessing && !aiGeneratedContent) setShowAiButtons(false); }, 200)}
                 disabled={!isEditorActive || isAiProcessing}
               />
               {isEditorActive && (
                 <div 
-                    className={`flex items-center justify-end space-x-2 p-2 border-t border-white/10 rounded-b-md transition-opacity duration-200 
-                                ${showAiButtons || isAiProcessing || aiGeneratedContent ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                    className="flex items-center justify-end space-x-2 p-2 border-t border-white/10 rounded-b-md transition-opacity duration-200"
                 >
                   <Button size="sm" variant="ghost" className="text-xs p-1.5 px-2 disabled:opacity-50 bg-primary/10 hover:bg-primary/20 text-primary" onClick={() => handleAiAction('explain')} disabled={isAiProcessing || !currentNoteContent.trim()}>
                     {isAiProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Brain className="h-3 w-3 mr-1" />} Explain
@@ -646,7 +652,7 @@ function StudySessionPageContent() {
                       )}
                     </ScrollArea>
                   )}
-                  {!referencePanelMode && (
+                  {!referencePanelMode && ( // If no mode is selected or PDF cleared
                      <div className="p-4 text-muted-foreground text-xs">Select a reference to view.</div>
                   )}
                 </div>
