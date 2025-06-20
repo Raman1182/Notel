@@ -2,7 +2,7 @@
 'use client';
 
 import type { NextPage } from 'next';
-import { useState, useEffect, useMemo, useRef } from 'react'; // Added useRef
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/shared/app-header';
@@ -25,28 +25,24 @@ const DayCellInternalContent = ({ date, deadlinesForDay }: { date: Date, deadlin
   const allCompleted = deadlinesForDay.length > 0 && deadlinesForDay.every(d => d.completed);
 
   return (
-    <div className="flex flex-col h-full p-1 items-center justify-start relative w-full">
+    <div className="flex flex-col h-full items-start justify-start w-full relative p-1"> {/* Cell padding is now on parent, this p-1 is for internal content alignment */}
       <span className={cn(
-        "absolute top-1.5 right-1.5 text-xs font-medium", // Made font slightly bolder
-        isSameDay(date, new Date()) ? 'text-primary' : 'text-muted-foreground'
+        "text-xs font-medium", 
+        isSameDay(date, new Date()) ? 'text-primary font-bold' : 'text-muted-foreground'
       )}>
         {dayNumber}
       </span>
       {deadlinesForDay.length > 0 && (
-        <div className="mt-6 flex flex-col items-center justify-center gap-0.5"> {/* Adjusted mt */}
+        <div className="mt-2 flex flex-col items-start justify-start gap-0.5 w-full pl-0.5"> {/* Adjusted mt and alignment for top-left day num */}
           {hasPendingDeadlines && <div className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" title="Pending deadline"></div>}
           {allCompleted && <BadgeCheck className="h-3 w-3 text-green-500" title="All deadlines completed"/>}
           {!hasPendingDeadlines && !allCompleted && deadlinesForDay.length > 0 && <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" title="Deadline exists"></div> }
           
-          {/* Simplified "+N more" logic for small cells */}
-          {deadlinesForDay.length > 1 && (hasPendingDeadlines || allCompleted) && (
-            <span className="text-[9px] text-primary/80 mt-0.5">
-              +{deadlinesForDay.length - (hasPendingDeadlines || allCompleted ? 1 : 0)}
+          {deadlinesForDay.length > 1 && (
+            <span className="text-[9px] text-primary/80 mt-0.5 self-center">
+              +{deadlinesForDay.length - (allCompleted || hasPendingDeadlines ? 1 : 0)} more
             </span>
           )}
-           {deadlinesForDay.length > 2 && !hasPendingDeadlines && !allCompleted && (
-             <span className="text-[9px] text-primary/80 mt-0.5">+{deadlinesForDay.length}</span>
-           )}
         </div>
       )}
     </div>
@@ -61,10 +57,6 @@ const CalendarPage: NextPage = () => {
   const [showAddDeadlineDialog, setShowAddDeadlineDialog] = useState(false);
   
   const { toast } = useToast();
-
-  // State for hover popover management, one per calendar for simplicity
-  // The actual open state will be managed within each DayContent instance.
-  // This is more of a placeholder if global control was needed, but we'll go local.
 
   useEffect(() => {
     const storedDeadlines = localStorage.getItem('learnlog-deadlines');
@@ -146,22 +138,21 @@ const CalendarPage: NextPage = () => {
                 <ShadcnCalendar
                     month={currentMonth}
                     onMonthChange={setCurrentMonth}
-                    // selected and onSelect are not used for hover popover control
                     className="!p-2 sm:!p-3 md:!p-4 w-full [&_table]:w-full [&_table]:border-collapse"
                     classNames={{
                         table: "w-full border-collapse",
-                        head_row: "flex",
-                        head_cell: "w-1/7 text-muted-foreground rounded-md font-normal text-[0.8rem] p-2 text-center",
-                        row: "flex w-full mt-0.5", // Reduced mt for tighter rows
-                        cell: cn(`h-24 w-1/7 text-center text-sm p-0 relative rounded-md border border-transparent
+                        head_row: "flex gap-x-1", // Added gap for header consistency
+                        head_cell: "flex-1 text-muted-foreground rounded-md font-normal text-[0.8rem] p-2 text-center", // flex-1 for width distribution
+                        row: "flex w-full mt-1 gap-x-1", // Added gap-x-1 for spacing between cells
+                        cell: cn(`h-28 flex-1 text-sm p-1.5 relative rounded-md border border-border/20
                                focus-within:relative focus-within:z-20 
-                               hover:border-primary/30 hover:bg-accent/50 transition-colors duration-150`
+                               hover:border-primary/50 hover:bg-accent/60 transition-colors duration-150` // Adjusted height, padding, hover
                         ),
-                        day: "h-full w-full p-0 focus:relative focus:z-20 cursor-pointer flex flex-col items-center justify-start", // p-0 for day
-                        day_today: "bg-accent/30 border-primary/50",
-                        day_selected: "bg-primary/20 !border-primary text-primary-foreground",
+                        day: "h-full w-full p-0 focus:relative focus:z-20 cursor-pointer flex flex-col items-center justify-start",
+                        day_today: "bg-primary/10 border-primary/70", // More prominent today
+                        day_selected: "bg-primary/20 !border-primary text-primary-foreground", // This might not be used if selection is disabled
                         day_disabled: "text-muted-foreground/50 opacity-50 cursor-not-allowed",
-                        day_outside: "text-muted-foreground/50 opacity-70",
+                        day_outside: "text-muted-foreground/50 opacity-70 bg-background/50", // Slightly different bg for outside days
                         caption_label: "text-xl font-bold",
                         nav_button: "h-8 w-8",
                     }}
@@ -177,23 +168,23 @@ const CalendarPage: NextPage = () => {
                          const handleMouseEnterTrigger = () => {
                             if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
                             if (deadlinesForDay.length > 0) {
-                                openTimeoutRef.current = setTimeout(() => setIsPopoverOpen(true), 100); // Open quickly
+                                openTimeoutRef.current = setTimeout(() => setIsPopoverOpen(true), 150); 
                             }
                          };
                          const handleMouseLeaveTrigger = () => {
                             if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
-                            closeTimeoutRef.current = setTimeout(() => setIsPopoverOpen(false), 200); // Delay closing
+                            closeTimeoutRef.current = setTimeout(() => setIsPopoverOpen(false), 250);
                          };
                          const handleMouseEnterContent = () => {
                             if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
                          };
                          const handleMouseLeaveContent = () => {
-                           closeTimeoutRef.current = setTimeout(() => setIsPopoverOpen(false), 200);
+                           closeTimeoutRef.current = setTimeout(() => setIsPopoverOpen(false), 250);
                          };
                          
-                         const handleClickTrigger = () => {
+                         const handleClickTrigger = () => { // Retain click for accessibility/touch
                              if (deadlinesForDay.length > 0) {
-                                 setIsPopoverOpen(prev => !prev); // Toggle on click
+                                 setIsPopoverOpen(prev => !prev); 
                              }
                          }
 
@@ -203,12 +194,12 @@ const CalendarPage: NextPage = () => {
                                     asChild
                                     onMouseEnter={handleMouseEnterTrigger}
                                     onMouseLeave={handleMouseLeaveTrigger}
-                                    onClick={handleClickTrigger} // Keep click for accessibility
+                                    onClick={handleClickTrigger}
                                 >
                                     <div 
                                         role="button" 
                                         tabIndex={0} 
-                                        className="w-full h-full flex items-center justify-center outline-none focus:ring-1 focus:ring-primary focus:ring-offset-0 rounded-md" // Added focus style to trigger
+                                        className="w-full h-full flex items-start justify-start outline-none focus:ring-1 focus:ring-primary focus:ring-offset-0 rounded-md"
                                         aria-label={`View deadlines for ${format(date, 'PPP')}`}
                                     >
                                       <DayCellInternalContent date={date} deadlinesForDay={deadlinesForDay} />
@@ -216,7 +207,7 @@ const CalendarPage: NextPage = () => {
                                 </PopoverTrigger>
                                 {deadlinesForDay.length > 0 && (
                                 <PopoverContent 
-                                    className="w-80 z-50 bg-popover text-popover-foreground border-border" 
+                                    className="w-80 z-50 bg-popover text-popover-foreground border-border shadow-xl" 
                                     align="start" 
                                     side="bottom"
                                     onMouseEnter={handleMouseEnterContent}
@@ -262,6 +253,5 @@ const CalendarPage: NextPage = () => {
 };
 
 export default CalendarPage;
-
 
     
