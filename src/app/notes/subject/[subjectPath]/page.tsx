@@ -6,9 +6,9 @@ import { useEffect, useState, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/shared/app-header';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookOpen, CalendarDays, Search, FileText as FileTextIcon, Loader2, Inbox } from 'lucide-react';
+import { ArrowRight, CalendarDays, Search, FileText as FileTextIcon, Loader2, Inbox } from 'lucide-react';
 import type { SessionData } from '@/app/study/launch/page';
 import type { TreeNode } from '@/components/study/session-sidebar';
 
@@ -48,9 +48,9 @@ function getNoteTitlesSummary(tree: TreeNode[], notesContent: Record<string, str
     if (tree.length > 0 && tree[0].children) {
         findTitles(tree[0].children);
     }
-    if (titles.length === 0 && tree.length > 0 && tree[0].name && !seenTitles.has(tree[0].name.toLowerCase())) { // Fallback to subject if no children notes/titles
+    if (titles.length === 0 && tree.length > 0 && tree[0].name && !seenTitles.has(tree[0].name.toLowerCase())) { 
       if (tree[0].children && tree[0].children.length > 0 && tree[0].children[0].type === 'note' && notesContent[tree[0].children[0].id]?.trim()) {
-        titles.push(tree[0].children[0].name); // Default note name
+        titles.push(tree[0].children[0].name); 
       } else if (Object.keys(notesContent).length > 0) {
          titles.push("General Notes");
       }
@@ -81,7 +81,6 @@ function SessionsForSubjectContent() {
   useEffect(() => {
     if (!subjectName || subjectName === 'Error Decoding Subject') {
         setIsLoading(false);
-        // Potentially redirect or show error
         return;
     }
 
@@ -149,7 +148,7 @@ function SessionsForSubjectContent() {
   return (
     <>
       {sessionsForSubject.map((session) => (
-        <Link key={session.sessionId} href={`/notes/${session.sessionId}/viewer`} passHref>
+        <Link key={session.sessionId} href={`/notes/${session.sessionId}/viewer?subject=${encodeURIComponent(subjectName)}`} passHref>
           <Card className="bg-card border-border shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 ease-out cursor-pointer mb-6">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between text-sm text-muted-foreground mb-1">
@@ -171,12 +170,8 @@ function SessionsForSubjectContent() {
                 <span className="font-medium text-foreground/80">Topics:</span> {session.noteTitlesSummary || "General notes for this session."}
               </p>
               <div className="text-xs text-muted-foreground">
-                {session.notesCount} note{session.notesCount === 1 ? '' : 's'} • 0 attachments (placeholder)
+                {session.notesCount} note{session.notesCount === 1 ? '' : 's'}
               </div>
-               {/* Optional: Short description placeholder
-               <p className="text-sm text-muted-foreground pt-2 border-t border-border/10 mt-3 line-clamp-2">
-                A brief overview of what was covered, or the first few lines of the main note...
-              </p> */}
             </CardContent>
             <div className="p-4 pt-3 border-t border-border/10 flex justify-end">
                  <Button variant="ghost" size="sm" className="text-primary hover:text-primary hover:bg-primary/10">
