@@ -3,29 +3,23 @@
 
 import { Button } from '@/components/ui/button';
 import { WidgetCard } from './widget-card';
-import { BookOpen, FilePlus2, Lightbulb, PlayCircle } from 'lucide-react'; // Added PlayCircle
+import { FilePlus2, Lightbulb, PlayCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export function QuickActionsWidget() {
   const router = useRouter();
 
   const handleNewNote = () => {
-    // Placeholder: In a real app, this would open a new note editor or trigger a command
-    console.log("New Note Clicked");
-    // Potentially use command palette action:
-    // commandPaletteActions.find(a => a.id === 'new-note')?.perform?.();
-    // For now, could also route to a notes page or trigger command palette for new note
     const event = new CustomEvent('open-command-palette', { detail: { initialQuery: 'create new note' } });
     window.dispatchEvent(event);
   };
   
   const handleStudySession = () => {
-    router.push('/study/launch'); // Updated to launch page
+    router.push('/study/launch');
   };
 
-  const handleAISummary = () => {
-    // Placeholder: trigger AI assistant
-    const event = new CustomEvent('open-ai-assistant', { detail: { mode: 'summarize' } });
+  const handleAiAssistant = () => {
+    const event = new CustomEvent('open-ai-assistant', { detail: { mode: 'chat' } });
     window.dispatchEvent(event);
   };
 
@@ -37,7 +31,7 @@ export function QuickActionsWidget() {
           className="w-full h-20 flex flex-col items-center justify-center space-y-1 border-primary/30 hover:bg-primary/10 hover:text-primary-foreground group transition-all duration-200 ease-out hover:shadow-3d-lift hover:-translate-y-0.5"
           onClick={handleStudySession}
         >
-          <PlayCircle className="h-6 w-6 text-primary group-hover:text-primary-foreground transition-colors" /> {/* Updated Icon */}
+          <PlayCircle className="h-6 w-6 text-primary group-hover:text-primary-foreground transition-colors" />
           <span className="text-sm">New Session</span>
         </Button>
         <Button 
@@ -51,14 +45,12 @@ export function QuickActionsWidget() {
         <Button 
           variant="outline" 
           className="w-full h-20 flex flex-col items-center justify-center space-y-1 sm:col-span-2 border-primary/30 hover:bg-primary/10 hover:text-primary-foreground group transition-all duration-200 ease-out hover:shadow-3d-lift hover:-translate-y-0.5"
-          onClick={handleAISummary}
+          onClick={handleAiAssistant} // Changed from handleAISummary
           >
           <Lightbulb className="h-6 w-6 text-primary group-hover:text-primary-foreground transition-colors" />
-          <span className="text-sm">AI Summarizer</span>
+          <span className="text-sm">AI Assistant</span> 
         </Button>
       </div>
     </WidgetCard>
   );
 }
-
-    

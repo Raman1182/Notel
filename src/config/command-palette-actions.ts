@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { Home, BookOpen, Lightbulb, Settings, FileText, ListChecks, Briefcase, MessageCircle, PlayCircle } from 'lucide-react';
+import { Home, BookOpen, Lightbulb, Settings, FileText, ListChecks, Briefcase, MessageCircle, PlayCircle, Wand2 } from 'lucide-react'; // Added Wand2 for AI Tools
 
 export interface CommandAction {
   id: string;
@@ -31,19 +31,19 @@ export const commandPaletteActions: CommandAction[] = [
   },
   {
     id: 'my-notes', 
-    name: 'View My Notes', // Updated name
+    name: 'View My Notes',
     section: 'Navigation', 
-    icon: BookOpen, // Changed icon to BookOpen to differentiate from FileText
+    icon: BookOpen,
     keywords: ['note', 'notes', 'documents', 'write', 'view', 'saved sessions', 'subjects', 'journey'],
     href: '/notes', 
   },
   {
     id: 'tasks',
-    name: 'Tasks',
+    name: 'Tasks & Deadlines', // Combined for clarity
     section: 'Navigation',
     icon: ListChecks,
-    keywords: ['todo', 'tasks', 'assignments', 'checklist'],
-    href: '/tasks', 
+    keywords: ['todo', 'tasks', 'assignments', 'checklist', 'deadlines'],
+    href: '/tasks', // Assuming a /tasks page might consolidate these
   },
   {
     id: 'resources',
@@ -54,11 +54,11 @@ export const commandPaletteActions: CommandAction[] = [
     href: '/resources', 
   },
   {
-    id: 'ai-assistant-nav', 
-    name: 'AI Assistant',
-    section: 'Navigation',
+    id: 'open-ai-assistant-chat', 
+    name: 'Open AI Assistant', // General "Open" command
+    section: 'AI Tools', // Moved to AI Tools for consistency
     icon: MessageCircle,
-    keywords: ['ai', 'summary', 'summarize', 'assistant', 'chatbot', 'help'],
+    keywords: ['ai', 'assistant', 'chatbot', 'help', 'ask question'],
     perform: () => {
         const event = new CustomEvent('open-ai-assistant', { detail: { mode: 'chat' } });
         window.dispatchEvent(event);
@@ -73,12 +73,13 @@ export const commandPaletteActions: CommandAction[] = [
     href: '/settings', 
   },
    {
-    id: 'ai-summarize-action',
-    name: 'Summarize Content (AI)',
+    id: 'ai-summarize-content-action', // Kept specific ID for summarization if needed later
+    name: 'Summarize Content with AI', // More specific
     section: 'AI Tools', 
-    icon: Lightbulb, 
-    keywords: ['summarize', 'ai tool', 'quick summary'],
+    icon: Lightbulb, // Lightbulb for specific tool
+    keywords: ['summarize', 'ai tool', 'quick summary', 'digest text'],
     perform: () => {
+      // This can open the assistant in summarize mode, or trigger a specific summarize UI later
       const event = new CustomEvent('open-ai-assistant', { detail: { mode: 'summarize' } });
       window.dispatchEvent(event);
     },
@@ -90,6 +91,8 @@ export const commandPaletteActions: CommandAction[] = [
     icon: FileText, 
     keywords: ['new note', 'add note', 'quick note', 'current session'],
     perform: () => {
+        // This might need to become smarter, e.g., check if a session is active
+        // For now, it opens command palette again, perhaps to pick a session or use current context
         const event = new CustomEvent('open-command-palette', { detail: { initialQuery: 'create new note in session' } });
         window.dispatchEvent(event);
     }
