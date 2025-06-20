@@ -116,9 +116,9 @@ export default {
           '50%': { backgroundPosition: '100% 50%' },
           '100%': { backgroundPosition: '0% 50%' },
         },
-        'pulse-subtle': { /* For AI thinking */
+        'pulse-subtle': { 
           '0%, 100%': { opacity: '1', transform: 'scale(1)' },
-          '50%': { opacity: '0.6', transform: 'scale(1.05)' },
+          '50%': { opacity: '0.75', transform: 'scale(1.02)' }, // Made it slightly more visible
         },
       },
       animation: {
@@ -130,7 +130,7 @@ export default {
         'wave-dot-2': 'wave-dots 1s infinite 0.2s',
         'wave-dot-3': 'wave-dots 1s infinite 0.4s',
         'gradient-shimmer': 'gradient-shimmer 3s ease infinite',
-        'pulse-subtle': 'pulse-subtle 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'pulse-subtle': 'pulse-subtle 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite', // Slightly slower
       },
     },
   },
