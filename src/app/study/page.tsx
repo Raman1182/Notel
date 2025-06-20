@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button';
 import { AppHeader } from '@/components/shared/app-header'; 
 import { Maximize2, Minimize2, Pause, Play, Settings2, Volume2, VolumeX } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
-import { Textarea } from '@/components/ui/textarea';
-import { SettingsProvider } from '@/components/settings-provider'; // Added for consistency
+import { Textarea } from '@/components/ui/textarea'; // Correct import
+import { SettingsProvider } from '@/components/settings-provider';
 
 const DigitalTimer = () => {
-  const [time, setTime] = useState(0); // time in seconds
+  const [time, setTime] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
 
   useEffect(() => {
@@ -54,9 +54,9 @@ const FloatingControlBar = ({ onToggleFocus, isFocusMode }: { onToggleFocus: () 
                     bg-background/70 backdrop-blur-md border border-border 
                     rounded-full shadow-xl p-2 flex items-center space-x-2 z-50">
       <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/20 active:scale-95 transition-transform" aria-label="Play/Pause">
-        <Play className="h-5 w-5" /> {/* Icon should toggle based on state */}
+        <Play className="h-5 w-5" />
       </Button>
-      <div className="w-24"> {/* Placeholder for a progress bar or scrub bar */}
+      <div className="w-24">
          <Progress value={33} className="h-1.5"/>
       </div>
       <Button variant="ghost" size="icon" onClick={() => setIsMuted(!isMuted)} className="rounded-full hover:bg-primary/20 active:scale-95 transition-transform" aria-label={isMuted ? "Unmute" : "Mute"}>
@@ -79,18 +79,16 @@ export default function StudySessionPage() {
   const toggleFocusMode = () => setIsFocusMode(prev => !prev);
 
   return (
-    <SettingsProvider> {/* Ensure settings context is available if AppHeader uses it */}
+    <SettingsProvider>
       <div className="flex flex-col h-screen bg-background text-foreground">
         <AppHeader />
         
         <div className={`flex-1 grid grid-cols-1 md:grid-cols-2 gap-0 transition-opacity duration-500 ${isFocusMode ? 'opacity-50 [&>*:not(.focused-area)]:opacity-30' : 'opacity-100'}`}>
-          {/* PDF/Document Viewer Area */}
           <div className={`h-full flex flex-col items-center justify-center bg-white/5 border-r border-border p-4 ${isFocusMode ? 'focused-area !opacity-100' : ''}`}>
             <p className="text-muted-foreground">PDF Viewer Area</p>
             <iframe src="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" title="Dummy PDF for study session" className="w-full h-5/6 mt-4 rounded-md border border-border"></iframe>
           </div>
 
-          {/* Notes Editor Area */}
           <div className={`h-full flex flex-col items-center justify-center bg-white/5 p-4 ${isFocusMode && !document.activeElement?.closest('.pdf-area') ? 'focused-area !opacity-100' : ''}`}>
             <p className="text-muted-foreground mb-4">Notes Editor Area</p>
             <Textarea 

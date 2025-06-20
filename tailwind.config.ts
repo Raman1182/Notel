@@ -1,3 +1,4 @@
+
 import type {Config} from 'tailwindcss';
 
 export default {
@@ -11,7 +12,7 @@ export default {
     extend: {
       fontFamily: {
         body: ['Inter', 'var(--font-inter)', 'sans-serif'],
-        headline: ['Inter', 'var(--font-inter)', 'sans-serif'], // Using Inter as SF Pro Display is not standard
+        headline: ['Inter', 'var(--font-inter)', 'sans-serif'], 
         code: ['JetBrains Mono', 'var(--font-jetbrains-mono)', 'monospace'],
       },
       colors: {
@@ -63,22 +64,12 @@ export default {
           '4': 'hsl(var(--chart-4))',
           '5': 'hsl(var(--chart-5))',
         },
-        sidebar: {
-          DEFAULT: 'hsl(var(--sidebar-background))',
-          foreground: 'hsl(var(--sidebar-foreground))',
-          primary: 'hsl(var(--sidebar-primary))',
-          'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-          accent: 'hsl(var(--sidebar-accent))',
-          'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-          border: 'hsl(var(--sidebar-border))',
-          ring: 'hsl(var(--sidebar-ring))',
-        },
       },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
-        xl: 'calc(var(--radius) + 4px)', // For larger rounded corners on cards
+        xl: 'calc(var(--radius) + 4px)', 
         '2xl': 'calc(var(--radius) + 8px)',
       },
       boxShadow: {
@@ -120,10 +111,14 @@ export default {
           '0%, 60%, 100%': { transform: 'translateY(0)' },
           '30%': { transform: 'translateY(-8px)' },
         },
-        'gradient- shimmer': {
+        'gradient-shimmer': {
           '0%': { backgroundPosition: '0% 50%' },
           '50%': { backgroundPosition: '100% 50%' },
           '100%': { backgroundPosition: '0% 50%' },
+        },
+        'pulse-subtle': { /* For AI thinking */
+          '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+          '50%': { opacity: '0.6', transform: 'scale(1.05)' },
         },
       },
       animation: {
@@ -135,6 +130,7 @@ export default {
         'wave-dot-2': 'wave-dots 1s infinite 0.2s',
         'wave-dot-3': 'wave-dots 1s infinite 0.4s',
         'gradient-shimmer': 'gradient-shimmer 3s ease infinite',
+        'pulse-subtle': 'pulse-subtle 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
     },
   },

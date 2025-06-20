@@ -1,21 +1,13 @@
+
 'use client';
 
 import * as React from 'react';
 import { useState } from 'react';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarTrigger,
-  SidebarTitle,
-} from "@/components/ui/enhanced-sidebar"; // Assuming enhanced-sidebar is the new name for sidebar.tsx
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger as AccordionPrimitiveTrigger } from '@/components/ui/accordion';
-import { FileText, Folder, ChevronRight, GripVertical } from 'lucide-react';
+// Sidebar component is no longer used directly for notes tree if command palette is main navigation
+// This component might be repurposed or replaced later.
+// For now, keeping its structure but it might not be actively rendered.
+import { Accordion, AccordionContent, AccordionItem } from '@/components/ui/accordion';
+import { FileText, Folder, ChevronRight } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from "@/lib/utils";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
@@ -76,7 +68,7 @@ function NotesAccordionRecursive({ items, level = 0, activeNoteId, setActiveNote
       {items.map((item) => (
         <AccordionItem value={item.id} key={item.id} className="border-b-0">
           <CustomAccordionTrigger
-            className={`hover:bg-sidebar-accent/50 rounded-md px-2 py-1.5 text-sm
+            className={`hover:bg-accent/10 rounded-md px-2 py-1.5 text-sm
             ${activeNoteId === item.id ? 'bg-primary/20 text-primary-foreground shadow-[inset_2px_0_0_0_hsl(var(--primary))]' : ''}`}
             style={{ paddingLeft: `${0.5 + level * 1}rem` }}
             onClick={() => { if(!item.children) setActiveNoteId(item.id) }}
@@ -104,28 +96,23 @@ function NotesAccordionRecursive({ items, level = 0, activeNoteId, setActiveNote
 
 export function NotesTree() {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+  // This component is no longer a primary sidebar. Its usage might change.
+  // For now, it just returns the accordion structure.
+  // If this is intended to be displayed on a specific page (e.g. /notes),
+  // it would be wrapped in appropriate layout on that page.
   return (
-    <Sidebar side="left" collapsible="icon" variant="sidebar" className="border-r border-border/50">
-      <SidebarHeader className="flex items-center justify-between p-3 border-b border-border/50">
-        <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
-          <Folder className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold font-headline">My Notes</h2>
-        </div>
-        <SidebarTrigger className="group-data-[collapsible=icon]:hidden" />
-         <button className="hidden group-data-[collapsible=icon]:flex items-center justify-center w-8 h-8 rounded-md hover:bg-sidebar-accent" onClick={() => {
-            const trigger = document.querySelector('[data-sidebar="trigger"]') as HTMLElement | null;
-            trigger?.click();
-         }}>
+    <div className="w-full h-full border-r border-border/50 bg-card p-2">
+        <div className="flex items-center justify-between p-3 border-b border-border/50">
+            <div className="flex items-center gap-2">
             <Folder className="h-5 w-5 text-primary" />
-        </button>
-      </SidebarHeader>
-      <SidebarContent className="p-0">
-        <ScrollArea className="h-full">
+            <h2 className="text-lg font-semibold font-headline">My Notes</h2>
+            </div>
+        </div>
+        <ScrollArea className="h-[calc(100%-60px)]"> {/* Adjust height based on header */}
             <div className="p-2">
-              <NotesAccordionRecursive items={sampleNotes} activeNoteId={activeNoteId} setActiveNoteId={setActiveNoteId} />
+            <NotesAccordionRecursive items={sampleNotes} activeNoteId={activeNoteId} setActiveNoteId={setActiveNoteId} />
             </div>
         </ScrollArea>
-      </SidebarContent>
-    </Sidebar>
+    </div>
   );
 }

@@ -1,14 +1,14 @@
 
 'use client';
 
-import { Cog, Menu, Minus, Plus, Sparkles, Home, BookOpen, FileText, ListChecks, Briefcase, MessageCircle, Target, Settings as SettingsIcon, Flame } from 'lucide-react';
+import { Cog, Menu, Minus, Plus, Sparkles, Home, BookOpen, FileText, ListChecks, Briefcase, MessageCircle, Target, Settings as SettingsIcon, Flame, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useSettings } from '@/contexts/settings-context';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -20,31 +20,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { LucideIcon } from 'lucide-react';
 
-interface NavItem {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-}
-
-const navItems: NavItem[] = [
-  { href: '/', label: 'Home', icon: Home },
-  { href: '/study', label: 'Study Sessions', icon: BookOpen },
-  { href: '/notes', label: 'My Notes', icon: FileText },
-  { href: '/tasks', label: 'Tasks', icon: ListChecks },
-  { href: '/resources', label: 'Resources', icon: Briefcase },
-  { href: '/ai-assistant', label: 'AI Assistant', icon: MessageCircle },
-];
-
 export function AppHeader() {
   const { fontSize, setFontSize, highContrast, setHighContrast } = useSettings();
-  const pathname = usePathname();
   const router = useRouter();
 
   const increaseFontSize = () => setFontSize((prev) => Math.min(prev + 2, 24));
   const decreaseFontSize = () => setFontSize((prev) => Math.max(prev - 2, 12));
 
-  const handleStartSession = () => {
-    router.push('/study');
+  const openCommandPalette = () => {
+    const event = new CustomEvent('open-command-palette');
+    window.dispatchEvent(event);
   };
 
   return (
@@ -55,64 +40,19 @@ export function AppHeader() {
             <Sparkles className="h-7 w-7 text-primary" />
             <span className="text-2xl font-bold font-headline tracking-tight">LearnLog</span>
           </Link>
-
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-2">
-            {navItems.map((item) => (
-              <Button
-                key={item.label}
-                variant={pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href)) ? "secondary" : "ghost"}
-                size="sm"
-                asChild
-                className="text-sm"
-              >
-                <Link href={item.href}>
-                  <item.icon className="mr-2 h-4 w-4" />
-                  {item.label}
-                </Link>
-              </Button>
-            ))}
-          </nav>
         </div>
 
         <div className="flex items-center space-x-2">
-          <Button variant="default" size="sm" onClick={handleStartSession} className="hidden sm:flex">
-            <Target className="mr-2 h-4 w-4" />
-            Start Session
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={openCommandPalette}
+            className="rounded-full h-10 w-10 hover:bg-primary/10 focus-visible:ring-primary/50 focus-visible:ring-offset-0 active:scale-95 transition-all duration-200 ease-out shadow-sm hover:shadow-md border-primary/30 group"
+            aria-label="Open command palette"
+          >
+            <Search className="h-5 w-5 text-primary group-hover:text-primary transition-colors" />
           </Button>
-
-          {/* Mobile Navigation */}
-          <div className="md:hidden">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-5 w-5" />
-                  <span className="sr-only">Open menu</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-popover text-popover-foreground border-border shadow-xl">
-                <DropdownMenuLabel>Navigation</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {navItems.map((item) => (
-                  <DropdownMenuItem key={item.label} asChild>
-                    <Link href={item.href} className="flex items-center w-full">
-                      <item.icon className="mr-2 h-4 w-4" />
-                      {item.label}
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                   <Button variant="default" size="sm" onClick={handleStartSession} className="w-full justify-start sm:hidden">
-                      <Target className="mr-2 h-4 w-4" />
-                      Start Session
-                    </Button>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
           
-          {/* User Menu & Settings */}
            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-9 w-9 rounded-full">

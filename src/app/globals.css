@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -167,10 +168,6 @@ body {
   background: hsl(var(--primary));
 }
 
-/* Apply custom scrollbar to ScrollArea in enhanced-sidebar if needed, or globally */
-/* For example, if ScrollArea is used within SidebarContent */
-/* [data-sidebar="content"] > div[data-radix-scroll-area-viewport] {
-  @apply custom-scrollbar;
-} */
-/* Or if you want to apply to all scroll areas */
-/* .dark ::-webkit-scrollbar { ... } */
+kbd {
+  @apply px-1.5 py-0.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-sm dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600;
+}

@@ -7,11 +7,11 @@ import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget'
 import { AiAssistantBubble } from '@/components/ai-assistant/ai-assistant-bubble';
 import { WidgetCard } from '@/components/dashboard/widget-card';
 import Image from 'next/image';
-import { SettingsProvider } from '@/components/settings-provider'; // Added for consistency if AppHeader is used directly
+import { SettingsProvider } from '@/components/settings-provider';
 
 export default function DashboardPage() {
   return (
-    <SettingsProvider> {/* Ensure settings context is available if AppHeader uses it */}
+    <SettingsProvider>
       <div className="flex flex-col min-h-screen">
         <AppHeader />
         <main className="flex-1 p-6 md:p-8 overflow-y-auto">
@@ -67,7 +67,7 @@ export default function DashboardPage() {
 
           </div>
         </main>
-        <AiAssistantBubble />
+        <AiAssistantBubble /> {/* This is separate from the command palette AI */}
       </div>
     </SettingsProvider>
   );
