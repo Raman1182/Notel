@@ -21,11 +21,11 @@ import {
   BookOpen,
   FileText,
   ListChecks,
-  Briefcase, // Changed from Library
+  Briefcase,
   Sparkles, 
   Settings,
   Target, 
-  MessageCircle // Changed from Lightbulb for AI Assistant icon
+  MessageCircle
 } from 'lucide-react';
 
 const navItems = [
@@ -47,7 +47,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar side="left" collapsible="icon" variant="floating">
+    <Sidebar side="right" collapsible="icon" variant="floating">
       <SidebarHeader className="p-4 border-b-0 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center">
         <Link href="/" className="flex items-center gap-2">
           <Sparkles className="h-7 w-7 text-primary transition-all duration-300 group-hover:rotate-[20deg]" />
@@ -66,7 +66,7 @@ export function AppSidebar() {
             aria-label="Start Study Session"
           >
             <Target className="h-5 w-5" />
-            <span className="ml-2 group-data-[collapsible=icon]:hidden">Start Session</span>
+            <span className="ml-2 group-data-[collapsible=icon]:hidden min-w-0 truncate">Start Session</span>
           </Button>
         </div>
 
@@ -103,7 +103,7 @@ export function AppSidebar() {
             <p className="font-semibold text-foreground">John Doe</p>
           </div>
         </div>
-         <Link href="/settings" passHref className="mt-2">
+         <Link href="/settings" passHref>
             <SidebarMenuButton
                 isActive={pathname === '/settings'}
                 tooltip="Settings"
