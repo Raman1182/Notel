@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview An AI flow to process a given URL (article or YouTube video),
+ * @fileOverview An AI flow to process a given URL (article),
  * summarize its content, and generate structured notes.
  *
  * - processUrlFlow - Function to process the URL.
@@ -13,8 +13,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const ProcessUrlInputSchema = z.object({
-  url: z.string().url().describe('The URL of the article or YouTube video to process.'),
-  contentType: z.enum(['article', 'youtube_video']).describe("The type of content at the URL, to guide processing."),
+  url: z.string().url().describe('The URL of the article to process.'),
 });
 export type ProcessUrlInput = z.infer<typeof ProcessUrlInputSchema>;
 
@@ -33,19 +32,16 @@ const prompt = ai.definePrompt({
   name: 'processUrlPrompt',
   input: { schema: ProcessUrlInputSchema },
   output: { schema: ProcessUrlOutputSchema },
-  prompt: `You are an AI assistant integrated into the LearnLog app. Your task is to process the content from the provided URL, summarize it, and generate structured notes.
+  prompt: `You are an AI assistant integrated into the LearnLog app. Your task is to process the content from the provided article URL, summarize it, and generate structured notes.
 
 URL: {{{url}}}
-Content Type: {{{contentType}}}
 
 Instructions:
 1.  Attempt to access and understand the content from the given URL.
-2.  Based on the 'Content Type':
-    *   If 'article': Identify the main topic, key arguments, evidence, and conclusions.
-    *   If 'youtube_video': Identify the main topic, key concepts explained, and any significant takeaways. If you cannot access a transcript, focus on information available from the video's metadata or general knowledge about the topic if identifiable.
+2.  Identify the main topic, key arguments, evidence, and conclusions from the article.
 3.  Generate a concise 'summary' of the content.
 4.  Generate 'structuredNotes'. These notes should be well-organized, using Markdown for formatting (e.g., headings like ##, ###, and bullet points like - or *). Focus on extracting the most important information that would be useful for study purposes.
-5.  If you are unable to access or process the URL for any reason (e.g., paywall, private video, network error), set the 'summary' to a message explaining the issue (e.g., "Could not access content at the provided URL."), make 'structuredNotes' an empty string or a similar message, and set the 'error' field with a brief technical reason if possible.
+5.  If you are unable to access or process the URL for any reason (e.g., paywall, network error, not an article), set the 'summary' to a message explaining the issue (e.g., "Could not access content at the provided URL or it does not appear to be an article."), make 'structuredNotes' an empty string or a similar message, and set the 'error' field with a brief technical reason if possible.
 
 Output Format:
 Ensure your output strictly adheres to the JSON schema with 'summary' and 'structuredNotes' fields.
@@ -69,12 +65,10 @@ const internalProcessUrlFlow = ai.defineFlow(
           error: "AI processing failed to return structured output."
         };
       }
-      // Ensure error field is explicitly undefined if no error string is in output,
-      // or if output.error is an empty string (which Zod would allow if optional).
       return {
         summary: output.summary,
         structuredNotes: output.structuredNotes,
-        error: output.error || undefined, // Ensure error is undefined if not present or empty
+        error: output.error || undefined, 
       };
     } catch (e: any) {
       console.error("Error in internalProcessUrlFlow:", e);
@@ -86,4 +80,3 @@ const internalProcessUrlFlow = ai.defineFlow(
     }
   }
 );
-
