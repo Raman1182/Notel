@@ -19,7 +19,7 @@ const QuizQuestionSchema = z.object({
   explanation: z.string().optional().describe('A brief explanation for the correct answer, especially for tricky questions.'),
 });
 
-export const GenerateQuizInputSchema = z.object({
+const GenerateQuizInputSchema = z.object({
   noteContent: z.string().min(50).describe('The content of the note from which to generate a quiz. Should be substantial enough for meaningful questions.'),
   subject: z.string().optional().describe('The subject of the note, to provide context for the quiz.'),
   numQuestions: z.number().min(1).max(10).optional().default(3).describe('The desired number of quiz questions to generate.'),
@@ -27,7 +27,7 @@ export const GenerateQuizInputSchema = z.object({
 });
 export type GenerateQuizInput = z.infer<typeof GenerateQuizInputSchema>;
 
-export const GenerateQuizOutputSchema = z.object({
+const GenerateQuizOutputSchema = z.object({
   questions: z.array(QuizQuestionSchema).describe('An array of generated quiz questions.'),
   quizTitle: z.string().optional().describe('A suggested title for the quiz, e.g., "Quiz on Photosynthesis Notes".'),
 });

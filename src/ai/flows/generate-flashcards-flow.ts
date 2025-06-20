@@ -16,14 +16,14 @@ const FlashcardSchema = z.object({
   back: z.string().describe('The back side of the flashcard (e.g., a definition, explanation, or answer).'),
 });
 
-export const GenerateFlashcardsInputSchema = z.object({
+const GenerateFlashcardsInputSchema = z.object({
   noteContent: z.string().min(20).describe('The content of the note from which to generate flashcards. Should be substantial enough for meaningful flashcards.'),
   subject: z.string().optional().describe('The subject of the note, to provide context.'),
   numFlashcards: z.number().min(1).max(20).optional().default(5).describe('The desired number of flashcards to generate.'),
 });
 export type GenerateFlashcardsInput = z.infer<typeof GenerateFlashcardsInputSchema>;
 
-export const GenerateFlashcardsOutputSchema = z.object({
+const GenerateFlashcardsOutputSchema = z.object({
   flashcards: z.array(FlashcardSchema).describe('An array of generated flashcards.'),
 });
 export type GenerateFlashcardsOutput = z.infer<typeof GenerateFlashcardsOutputSchema>;
@@ -67,3 +67,4 @@ const internalGenerateFlashcardsFlow = ai.defineFlow(
     return output;
   }
 );
+

@@ -131,3 +131,4 @@ const internalSmartSearchFlow = ai.defineFlow(
     return { ...output, suggestedActions: uniqueSuggestedActions };
   }
 );
+
