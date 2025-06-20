@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useEffect, useState, useCallback, Suspense, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { SessionSidebar, type TreeNode } from '@/components/study/session-sidebar';
+import { SessionSidebar, type TreeNode, findNodeByIdRecursive } from '@/components/study/session-sidebar';
 import { FloatingTimerWidget } from '@/components/study/floating-timer-widget';
-import { Paperclip, StickyNote, Loader2, X, Settings, Zap, CheckSquare, ChevronDown, Sparkles, Brain, MessageSquare, FileText } from 'lucide-react';
+import { Paperclip, StickyNote, Loader2, X, Brain, MessageSquare, Sparkles, FileText as FileTextIcon } from 'lucide-react'; // Renamed FileText to FileTextIcon
 import type { SessionData } from '@/app/study/launch/page';
 import { processText, type ProcessTextInput } from '@/ai/flows/process-text-flow';
 import { useToast } from '@/hooks/use-toast';
@@ -40,6 +40,10 @@ function StudySessionPageContent() {
   const [currentNoteContent, setCurrentNoteContent] = useState('');
 
   const [isReferencePanelOpen, setIsReferencePanelOpen] = useState(false);
+  const [referencePanelMode, setReferencePanelMode] = useState<'pdf' | 'notes' | null>(null);
+  const [currentPdf, setCurrentPdf] = useState<{ name: string; dataUri: string } | null>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+
   const [showAiButtons, setShowAiButtons] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
 
@@ -49,7 +53,7 @@ function StudySessionPageContent() {
   const [notebookTitle, setNotebookTitle] = useState('');
 
 
-  // Load session data, tree, and notes from localStorage
+  // Load session data, tree, notes, and PDF attachment info from localStorage
   useEffect(() => {
     if (!sessionId) return;
     setIsLoading(true);
@@ -84,7 +88,6 @@ function StudySessionPageContent() {
             setActiveNoteId(firstChildNote.id);
             setCurrentNoteContent(parsedNotesContent[firstChildNote.id] || '');
         } else {
-           // If no notes, create one if root exists
             if (parsedTreeData.length > 0 && parsedTreeData[0].id === 'root') {
                 const newNoteId = `${Date.now()}-initial-note`;
                 const newNote: TreeNode = { id: newNoteId, name: "My First Note", type: 'note', parentId: 'root' };
@@ -95,15 +98,20 @@ function StudySessionPageContent() {
             }
         }
 
-
         const savedTime = localStorage.getItem(`learnlog-session-${sessionId}-timer`);
         if (savedTime) setSessionTime(parseInt(savedTime, 10));
         
         const savedRunning = localStorage.getItem(`learnlog-session-${sessionId}-running`);
         setIsSessionRunning(savedRunning === 'true');
 
+        const attachedPdfName = localStorage.getItem(`learnlog-session-${sessionId}-pdfName`);
+        if (attachedPdfName) {
+          // We don't auto-load the PDF content, just remember its name.
+          // User will need to re-select if they want to view it.
+          // Optionally, prompt user here.
+        }
+
       } else {
-        console.error("Session data not found for ID:", sessionId);
         toast({ title: "Error", description: "Session data not found.", variant: "destructive" });
         router.push('/study/launch'); 
       }
@@ -116,16 +124,6 @@ function StudySessionPageContent() {
     }
   }, [sessionId, router, toast]);
 
-  const findFirstNoteRecursive = (nodes: TreeNode[]): TreeNode | null => {
-    for (const node of nodes) {
-      if (node.type === 'note') return node;
-      if (node.children) {
-        const found = findFirstNoteRecursive(node.children);
-        if (found) return found;
-      }
-    }
-    return null;
-  };
 
   const saveTreeToLocalStorage = useCallback(
     debounce((newTree: TreeNode[]) => {
@@ -164,7 +162,6 @@ function StudySessionPageContent() {
   }, [notesContent, saveNotesContentToLocalStorage, isLoading]);
 
 
-  // Save timer state to localStorage
   useEffect(() => {
     if (sessionId && !isLoading) { 
       localStorage.setItem(`learnlog-session-${sessionId}-timer`, sessionTime.toString());
@@ -172,7 +169,6 @@ function StudySessionPageContent() {
     }
   }, [sessionTime, isSessionRunning, sessionId, isLoading]);
 
-  // Timer logic
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (isSessionRunning && !isLoading) {
@@ -190,7 +186,6 @@ function StudySessionPageContent() {
   const handleEndSession = () => {
     if (window.confirm("Are you sure you want to end this study session? All notes will be saved.")) {
       setIsSessionRunning(false);
-      // Ensure latest content is flushed to notesContent before saving
       if (activeNoteId) {
         const finalNotes = { ...notesContent, [activeNoteId]: currentNoteContent };
         localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(finalNotes));
@@ -199,17 +194,14 @@ function StudySessionPageContent() {
       }
       if (treeData.length > 0) localStorage.setItem(`learnlog-session-${sessionId}-tree`, JSON.stringify(treeData));
       localStorage.setItem(`learnlog-session-${sessionId}-timer`, sessionTime.toString());
-      localStorage.setItem(`learnlog-session-${sessionId}-running`, 'false'); // Explicitly set to false
+      localStorage.setItem(`learnlog-session-${sessionId}-running`, 'false'); 
       router.push('/'); 
     }
   };
 
-  const toggleReferencePanel = () => setIsReferencePanelOpen(prev => !prev);
-
   const handleNoteSelect = (nodeId: string, nodeType: TreeNode['type']) => {
     if (nodeType === 'note') {
       if (activeNoteId && activeNoteId !== nodeId && currentNoteContent !== (notesContent[activeNoteId] || '')) {
-        // Save current note before switching (direct save, not debounced)
          setNotesContent(prev => {
             const updatedNotes = { ...prev, [activeNoteId as string]: currentNoteContent };
             localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(updatedNotes));
@@ -219,7 +211,7 @@ function StudySessionPageContent() {
       setActiveNoteId(nodeId);
       setCurrentNoteContent(notesContent[nodeId] || '');
     } else {
-      setActiveNoteId(nodeId);
+      setActiveNoteId(nodeId); // Allow selecting non-note items to see their name, but editor remains disabled
     }
   };
 
@@ -228,32 +220,27 @@ function StudySessionPageContent() {
         toast({ title: "Error", description: "Node name cannot be empty.", variant: "destructive" });
         return;
     }
-
     const newNode: TreeNode = {
       id: `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       name: name.trim(),
       type,
-      children: (type === 'note' || type === 'subject') ? [] : [], // subjects can have children, notes cannot
+      children: (type === 'note' || type === 'subject') ? [] : [], 
       parentId: parentId,
     };
-    if (type === 'subject') newNode.children = []; // ensure subject can have children
+    if (type === 'subject') newNode.children = [];
 
     if (type === 'note') {
       setNotesContent(prev => ({ ...prev, [newNode.id]: '' }));
     }
     
     const updateTreeRecursively = (nodes: TreeNode[], pId: string | null): TreeNode[] => {
-      if (pId === null ) { // Adding to root if tree is empty or pId is explicitly null
-        if (nodes.length > 0 && nodes[0].id === 'root' && nodes[0].type === 'subject') { // Common case: adding to existing root
+      if (pId === null ) { 
+        if (nodes.length > 0 && nodes[0].id === 'root' && nodes[0].type === 'subject') { 
             const rootNode = nodes[0];
             return [{ ...rootNode, children: [...(rootNode.children || []), newNode] }];
         }
-        // This case should ideally not be hit if a root subject node always exists.
-        // If it's a new tree, the first node should be a subject.
-        // For simplicity, we assume parentId 'root' is always the first node.
         return [...nodes, newNode]; 
       }
-
       return nodes.map(node => {
         if (node.id === pId) {
           return { ...node, children: [...(node.children || []), newNode] };
@@ -264,8 +251,7 @@ function StudySessionPageContent() {
         return node;
       });
     };
-    
-    setTreeData(prevTree => updateTreeRecursively(prevTree, parentId || 'root')); // Default to 'root' if parentId is null
+    setTreeData(prevTree => updateTreeRecursively(prevTree, parentId || 'root'));
   };
   
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -300,6 +286,51 @@ function StudySessionPageContent() {
     }
   };
 
+  const handleOpenPdfSelector = () => {
+    pdfInputRef.current?.click();
+  };
+
+  const handlePdfSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type === "application/pdf") {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUri = e.target?.result as string;
+        setCurrentPdf({ name: file.name, dataUri });
+        setReferencePanelMode('pdf');
+        setIsReferencePanelOpen(true);
+        if (sessionId) {
+            localStorage.setItem(`learnlog-session-${sessionId}-pdfName`, file.name);
+        }
+      };
+      reader.readAsDataURL(file);
+    } else if (file) {
+      toast({ title: "Invalid File", description: "Please select a PDF file.", variant: "destructive" });
+    }
+    // Reset file input to allow selecting the same file again if needed
+    if (event.target) event.target.value = ''; 
+  };
+
+  const handleClearPdf = () => {
+    setCurrentPdf(null);
+    setReferencePanelMode(null); 
+    setIsReferencePanelOpen(false); // Or keep open with no content if preferred
+    if (sessionId) {
+        localStorage.removeItem(`learnlog-session-${sessionId}-pdfName`);
+    }
+  };
+  
+  const handleOpenPreviousNotes = () => {
+    setReferencePanelMode('notes');
+    setIsReferencePanelOpen(true);
+    setCurrentPdf(null); // Ensure PDF is not shown if switching to notes
+  };
+  
+  const closeReferencePanel = () => {
+    setIsReferencePanelOpen(false);
+    setReferencePanelMode(null);
+    // setCurrentPdf(null); // Decide if clearing PDF on panel close is desired
+  }
 
   if (isLoading || !sessionData) {
     return (
@@ -319,6 +350,7 @@ function StudySessionPageContent() {
 
   return (
     <div className="flex flex-col h-screen bg-[#0A0A0A] text-foreground overflow-hidden">
+      <input type="file" accept="application/pdf" ref={pdfInputRef} onChange={handlePdfSelected} className="hidden" />
       
       <div className="flex flex-1 overflow-hidden">
         <SessionSidebar 
@@ -336,11 +368,11 @@ function StudySessionPageContent() {
                 {notebookTitle} {activeNoteId && currentActiveNode ? `/ ${currentActiveNode.name}` : ''}
             </div>
             <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm" onClick={toggleReferencePanel} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
+                <Button variant="outline" size="sm" onClick={handleOpenPdfSelector} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
                 <Paperclip className="h-4 w-4 mr-2" />
                 Add PDF
                 </Button>
-                <Button variant="outline" size="sm" onClick={toggleReferencePanel} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
+                <Button variant="outline" size="sm" onClick={handleOpenPreviousNotes} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
                 <StickyNote className="h-4 w-4 mr-2" />
                 Previous Notes
                 </Button>
@@ -379,15 +411,33 @@ function StudySessionPageContent() {
             </div>
 
             {isReferencePanelOpen && (
-              <div className="w-[35%] max-w-[500px] h-full bg-[#0F0F0F] border border-white/10 p-4 rounded-lg flex flex-col overflow-y-auto custom-scrollbar shadow-lg">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-3">
-                  <span className="font-semibold text-sm">Reference Panel</span>
-                  <Button variant="ghost" size="icon" onClick={toggleReferencePanel} className="h-6 w-6 text-muted-foreground hover:text-foreground">
-                    <X className="h-4 w-4"/>
-                  </Button>
+              <div className="w-[35%] max-w-[500px] h-full bg-[#0F0F0F] border border-white/10 p-0 rounded-lg flex flex-col overflow-hidden custom-scrollbar shadow-lg">
+                <div className="flex items-center justify-between border-b border-white/10 p-2 mb-0 shrink-0">
+                  <span className="font-semibold text-sm ml-2">
+                    {referencePanelMode === 'pdf' && currentPdf ? `PDF: ${currentPdf.name}` : 
+                     referencePanelMode === 'notes' ? 'Previous Notes' : 'Reference Panel'}
+                  </span>
+                  <div className="flex items-center">
+                    {referencePanelMode === 'pdf' && currentPdf && (
+                         <Button variant="ghost" size="sm" onClick={handleClearPdf} className="h-6 px-2 text-xs text-destructive hover:bg-destructive/10 mr-1">
+                            Clear PDF
+                        </Button>
+                    )}
+                    <Button variant="ghost" size="icon" onClick={closeReferencePanel} className="h-6 w-6 text-muted-foreground hover:text-foreground">
+                        <X className="h-4 w-4"/>
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs">
-                  PDF / Reference Viewer Area
+                <div className="flex-1 flex items-center justify-center overflow-auto">
+                  {referencePanelMode === 'pdf' && currentPdf?.dataUri && (
+                    <iframe src={currentPdf.dataUri} width="100%" height="100%" title="PDF Viewer" className="border-none"></iframe>
+                  )}
+                  {referencePanelMode === 'notes' && (
+                    <div className="p-4 text-muted-foreground text-xs">Previous Notes Area - Content to be implemented.</div>
+                  )}
+                  {!referencePanelMode && (
+                     <div className="p-4 text-muted-foreground text-xs">Select a reference to view.</div>
+                  )}
                 </div>
               </div>
             )}
@@ -408,17 +458,6 @@ function StudySessionPageContent() {
   );
 }
 
-// Helper function to find a node by ID in the tree
-export function findNodeByIdRecursive(nodes: TreeNode[], id: string): TreeNode | null {
-  for (const node of nodes) {
-    if (node.id === id) return node;
-    if (node.children) {
-      const found = findNodeByIdRecursive(node.children, id);
-      if (found) return found;
-    }
-  }
-  return null;
-}
 
 export default function StudySessionPage() {
   return (
@@ -427,3 +466,6 @@ export default function StudySessionPage() {
     </Suspense>
   );
 }
+
+
+    

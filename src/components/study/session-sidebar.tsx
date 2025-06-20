@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronDown, FileText, FolderOpen, FolderClosed, BookText, ChevronsLeftRight, PlusSquare, FilePlus2, FolderPlus, Dot, Edit2, Trash2 } from 'lucide-react';
+import { ChevronDown, FileText as FileTextIcon, FolderOpen, FolderClosed, BookText, ChevronsLeftRight, PlusSquare, FilePlus2, FolderPlus, Dot, Edit2, Trash2 } from 'lucide-react'; // Renamed FileText
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Input } from '@/components/ui/input';
@@ -16,11 +16,24 @@ export interface TreeNode {
   parentId: string | null; 
 }
 
+// Helper function to find a node by ID in the tree (can be co-located or imported if used elsewhere)
+export function findNodeByIdRecursive(nodes: TreeNode[], id: string): TreeNode | null {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    if (node.children) {
+      const found = findNodeByIdRecursive(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+
 const TypeIconMap: Record<TreeNode['type'], React.ElementType> = {
   subject: BookText,
   title: FolderOpen, 
   subheading: FolderOpen, 
-  note: FileText,
+  note: FileTextIcon, // Use renamed import
 };
 
 interface TreeItemDisplayProps {
@@ -29,12 +42,10 @@ interface TreeItemDisplayProps {
   onSelectNode: (id: string, type: TreeNode['type']) => void;
   activeNodeId: string | null;
   onAddNode: (parentId: string, type: 'title' | 'subheading' | 'note', name: string) => void;
-  // onRenameNode: (nodeId: string, newName: string) => void; // Future
-  // onDeleteNode: (nodeId: string) => void; // Future
 }
 
 const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelectNode, activeNodeId, onAddNode }) => {
-  const [isOpen, setIsOpen] = useState(level < 1 || item.type === 'subject'); 
+  const [isOpen, setIsOpen] = useState(level < 1 || item.type === 'subject' || (item.children && item.children.length > 0 && item.type !== 'note')); 
   const [isHovered, setIsHovered] = useState(false);
   
   const [editingChild, setEditingChild] = useState<{type: 'title' | 'subheading' | 'note', name: string} | null>(null);
@@ -50,7 +61,7 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
     e?.stopPropagation();
     e?.preventDefault();
     setEditingChild({ type, name: '' });
-    if (!isOpen && item.children && item.children.length >= 0) { // Open if not already, even if no children yet
+    if (!isOpen && item.children && item.children.length >= 0) { 
       setIsOpen(true);
     }
   };
@@ -89,8 +100,8 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
     onSelectNode(item.id, item.type);
   };
 
-  const canAddTitle = item.type === 'subject'; // Only subject can have titles directly
-  const canAddSubheading = item.type === 'title'; // Only title can have subheadings
+  const canAddTitle = item.type === 'subject';
+  const canAddSubheading = item.type === 'title'; 
   const canAddNoteToThisLevel = item.type === 'subject' || item.type === 'title' || item.type === 'subheading';
 
   return (
@@ -117,33 +128,22 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
         <ItemIcon className={cn(`h-4 w-4 mr-1.5 shrink-0`, item.type === 'subject' ? 'text-primary' : activeNodeId === item.id ? 'text-primary': 'text-foreground-opacity-50 group-hover:text-foreground-opacity-70')} />
         <span className="truncate flex-1 group-hover:text-foreground-opacity-100">{item.name}</span>
 
-        {isHovered && !editingChild && (
+        {isHovered && !editingChild && (item.type !== 'note') && ( // Only show add buttons for non-note items
           <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center space-x-0.5 bg-[#0F0F0F] p-0.5 rounded">
-            {canAddTitle && ( // This case is mostly for root, handled by SessionSidebar's top buttons
-              <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 hover:bg-white/20" title={`Add Title`} onClick={(e) => handleStartAddChild('title', e)}>
+            {canAddTitle && ( // For root 'subject' node to add 'title'
+              <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 hover:bg-white/20" title={`Add Title to ${item.name}`} onClick={(e) => handleStartAddChild('title', e)}>
                 <FolderPlus className="h-3.5 w-3.5" />
               </Button>
             )}
-            {canAddSubheading && (
-              <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 hover:bg-white/20" title={`Add Sub-heading`} onClick={(e) => handleStartAddChild('subheading', e)}>
+            {canAddSubheading && ( // For 'title' node to add 'subheading'
+              <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 hover:bg-white/20" title={`Add Sub-heading to ${item.name}`} onClick={(e) => handleStartAddChild('subheading', e)}>
                 <FolderPlus className="h-3.5 w-3.5" />
               </Button>
             )}
-             {canAddNoteToThisLevel && (
-              <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 hover:bg-white/20" title={`Add Note`} onClick={(e) => handleStartAddChild('note', e)}>
+            {canAddNoteToThisLevel && ( // For 'subject', 'title', 'subheading'
+              <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 hover:bg-white/20" title={`Add Note to ${item.name}`} onClick={(e) => handleStartAddChild('note', e)}>
                 <FilePlus2 className="h-3.5 w-3.5" />
               </Button>
-            )}
-            {/* Rename and Delete placeholders */}
-            {item.type !== 'subject' && (
-                <>
-                {/* <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 hover:bg-white/20" title="Rename" onClick={(e) => {e.stopPropagation(); alert('Rename clicked');}}>
-                    <Edit2 className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 hover:bg-destructive/20 text-destructive" title="Delete" onClick={(e) => {e.stopPropagation(); alert('Delete clicked');}}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                </Button> */}
-                </>
             )}
           </div>
         )}
@@ -154,7 +154,7 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
           className="flex items-center py-1.5 pr-1" 
           style={{ paddingLeft: `${0.5 + (level + 1) * 0.8}rem` }} 
         >
-          {editingChild.type === 'note' && <FileText className="h-4 w-4 mr-1.5 shrink-0 text-muted-foreground opacity-70" />}
+          {editingChild.type === 'note' && <FileTextIcon className="h-4 w-4 mr-1.5 shrink-0 text-muted-foreground opacity-70" />}
           {(editingChild.type === 'title' || editingChild.type === 'subheading') && <FolderClosed className="h-4 w-4 mr-1.5 shrink-0 text-muted-foreground opacity-70" />}
           <form onSubmit={handleConfirmAddChild} className="flex-1">
             <Input
@@ -165,7 +165,7 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
               onKeyDown={(e) => {
                 if (e.key === 'Escape') { e.preventDefault(); handleCancelAddChild(); }
               }}
-              onBlur={handleConfirmAddChild} // Confirm on blur if content exists
+              onBlur={handleConfirmAddChild}
               placeholder={`New ${editingChild.type} name...`}
               className="bg-transparent text-sm outline-none border border-primary/50 rounded px-2 py-1 w-full focus:border-primary h-7"
             />
@@ -252,7 +252,7 @@ export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeN
                     "flex items-center gap-2 w-full mr-1 cursor-pointer rounded-md p-1 flex-grow",
                     activeNodeId === rootNode.id ? 'bg-primary/20 text-primary font-medium -ml-1 pl-2' : 'hover:bg-white/10'
                 )}
-                onClick={() => onSelectNode(rootNode.id, 'subject')}
+                onClick={() => rootNode && onSelectNode(rootNode.id, 'subject')} // Check rootNode existence
             >
                 <BookText className="h-5 w-5 text-primary flex-shrink-0" />
                 <h2 className="text-lg font-semibold truncate" title={sessionSubject}>
@@ -266,12 +266,16 @@ export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeN
             </div>
         )}
         <div className="flex items-center shrink-0">
-            <Button variant="ghost" size="icon" title="Add New Title" onClick={(e) => handleStartAddAtRoot('title', e)} className="hover:bg-white/20 h-7 w-7 p-1">
-                <FolderPlus className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" title="Add New Note" onClick={(e) => handleStartAddAtRoot('note', e)} className="hover:bg-white/20 h-7 w-7 p-1">
-                <FilePlus2 className="h-4 w-4" />
-            </Button>
+            {rootNode && ( // Only show add buttons if rootNode exists
+              <>
+                <Button variant="ghost" size="icon" title="Add New Title" onClick={(e) => handleStartAddAtRoot('title', e)} className="hover:bg-white/20 h-7 w-7 p-1">
+                    <FolderPlus className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" title="Add New Note" onClick={(e) => handleStartAddAtRoot('note', e)} className="hover:bg-white/20 h-7 w-7 p-1">
+                    <FilePlus2 className="h-4 w-4" />
+                </Button>
+              </>
+            )}
             <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(true)} className="hover:bg-white/20 h-7 w-7 p-1">
                 <ChevronsLeftRight className="h-5 w-5" />
             </Button>
@@ -291,9 +295,9 @@ export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeN
          {rootNode && isAddingAtRoot && (
             <div 
                 className="flex items-center py-1.5 pr-1" 
-                style={{ paddingLeft: `${0.5 + 0 * 0.8}rem` }} // Level 0 for root children
+                style={{ paddingLeft: `${0.5 + 0 * 0.8}rem` }} 
             >
-                {isAddingAtRoot.type === 'note' && <FileText className="h-4 w-4 mr-1.5 shrink-0 text-muted-foreground opacity-70" />}
+                {isAddingAtRoot.type === 'note' && <FileTextIcon className="h-4 w-4 mr-1.5 shrink-0 text-muted-foreground opacity-70" />}
                 {isAddingAtRoot.type === 'title' && <FolderClosed className="h-4 w-4 mr-1.5 shrink-0 text-muted-foreground opacity-70" />}
                 <form onSubmit={handleConfirmAddAtRoot} className="flex-1">
                 <Input
@@ -322,3 +326,5 @@ export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeN
   );
 }
 
+
+    
