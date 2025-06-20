@@ -1,15 +1,15 @@
 
 'use client';
 
-import { useEffect, useState, useCallback, Key } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState, useCallback, Key, Suspense } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { AppHeader } from '@/components/shared/app-header';
 import { Textarea } from '@/components/ui/textarea';
 import { SessionSidebar, type TreeNode } from '@/components/study/session-sidebar';
 import { FloatingTimerWidget } from '@/components/study/floating-timer-widget';
 import { Paperclip, StickyNote, Loader2, X } from 'lucide-react';
-import type { SessionData } from '@/app/study/launch/page'; // Import SessionData
+import type { SessionData } from '@/app/study/launch/page'; 
 
 // Debounce utility
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
@@ -24,9 +24,11 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   return debounced as (...args: Parameters<F>) => ReturnType<F>;
 }
 
-export default function StudySessionPage() {
+
+function StudySessionPageContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const sessionId = params.sessionId as string;
 
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
@@ -42,6 +44,8 @@ export default function StudySessionPage() {
   const [sessionTime, setSessionTime] = useState(0);
   const [isSessionRunning, setIsSessionRunning] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [notebookTitle, setNotebookTitle] = useState('');
+
 
   // Load session data, tree, and notes from localStorage
   useEffect(() => {
@@ -52,6 +56,7 @@ export default function StudySessionPage() {
       if (storedSessionDataJSON) {
         const parsedSessionData: SessionData = JSON.parse(storedSessionDataJSON);
         setSessionData(parsedSessionData);
+        setNotebookTitle(parsedSessionData.subject); // Initialize notebook title
 
         const storedTreeJSON = localStorage.getItem(`learnlog-session-${sessionId}-tree`);
         const parsedTree: TreeNode[] = storedTreeJSON ? JSON.parse(storedTreeJSON) : [{ id: 'root', name: parsedSessionData.subject, type: 'subject', children: [], parentId: null }];
@@ -61,22 +66,19 @@ export default function StudySessionPage() {
         const parsedNotesContent: Record<string, string> = storedNotesContentJSON ? JSON.parse(storedNotesContentJSON) : {};
         setNotesContent(parsedNotesContent);
 
-        // Auto-select the first note if available
-        const firstNote = findFirstNote(parsedTree);
-        if (firstNote) {
-          setActiveNoteId(firstNote.id);
-          setCurrentNoteContent(parsedNotesContent[firstNote.id] || '');
-        } else {
-          // If no notes, try to select the default created one or root
-           const defaultNote = parsedTree[0]?.children?.find(child => child.type === 'note');
-           if (defaultNote) {
-            setActiveNoteId(defaultNote.id);
-            setCurrentNoteContent(parsedNotesContent[defaultNote.id] || '');
-           } else if (parsedTree.length > 0 && parsedTree[0].type === 'note') {
-             setActiveNoteId(parsedTree[0].id);
-             setCurrentNoteContent(parsedNotesContent[parsedTree[0].id] || '');
-           }
+        // Auto-select the first note if available or the default created one
+        const firstNoteInTree = findFirstNoteRecursive(parsedTree);
+        if (firstNoteInTree) {
+          setActiveNoteId(firstNoteInTree.id);
+          setCurrentNoteContent(parsedNotesContent[firstNoteInTree.id] || '');
+        } else if (parsedTree[0]?.children?.find(child => child.type === 'note')) {
+            const defaultNote = parsedTree[0].children.find(child => child.type === 'note');
+            if (defaultNote) {
+                setActiveNoteId(defaultNote.id);
+                setCurrentNoteContent(parsedNotesContent[defaultNote.id] || '');
+            }
         }
+
 
         const savedTime = localStorage.getItem(`learnlog-session-${sessionId}-timer`);
         if (savedTime) setSessionTime(parseInt(savedTime, 10));
@@ -86,21 +88,21 @@ export default function StudySessionPage() {
 
       } else {
         console.error("Session data not found for ID:", sessionId);
-        router.push('/study/launch');
+        // router.push('/study/launch'); // Keep user on page, show error?
       }
     } catch (error) {
       console.error("Error loading session data:", error);
-      router.push('/study/launch');
+      // router.push('/study/launch');
     } finally {
       setIsLoading(false);
     }
   }, [sessionId, router]);
 
-  const findFirstNote = (nodes: TreeNode[]): TreeNode | null => {
+  const findFirstNoteRecursive = (nodes: TreeNode[]): TreeNode | null => {
     for (const node of nodes) {
       if (node.type === 'note') return node;
       if (node.children) {
-        const found = findFirstNote(node.children);
+        const found = findFirstNoteRecursive(node.children);
         if (found) return found;
       }
     }
@@ -108,10 +110,9 @@ export default function StudySessionPage() {
   };
 
 
-  // Save tree and notes content to localStorage
   const saveTreeToLocalStorage = useCallback(
     debounce((newTree: TreeNode[]) => {
-      if (sessionId) {
+      if (sessionId && newTree.length > 0) { // ensure tree is not empty before saving
         localStorage.setItem(`learnlog-session-${sessionId}-tree`, JSON.stringify(newTree));
       }
     }, 1000),
@@ -128,29 +129,34 @@ export default function StudySessionPage() {
   );
   
   useEffect(() => {
-    if (treeData.length > 0) {
+    if (treeData.length > 0 && !isLoading) { // ensure not to save initial empty or partially loaded tree
         saveTreeToLocalStorage(treeData);
     }
-  }, [treeData, saveTreeToLocalStorage]);
+  }, [treeData, saveTreeToLocalStorage, isLoading]);
 
   useEffect(() => {
-    if (Object.keys(notesContent).length > 0 || (activeNoteId && currentNoteContent !== (notesContent[activeNoteId] || '')) ) {
+     // Save notes if there's content or if the current note differs from stored
+    if (!isLoading && (Object.keys(notesContent).length > 0 || (activeNoteId && currentNoteContent !== (notesContent[activeNoteId] || '')))) {
         saveNotesContentToLocalStorage(notesContent);
     }
-  }, [notesContent, saveNotesContentToLocalStorage, activeNoteId, currentNoteContent]);
+  }, [notesContent, saveNotesContentToLocalStorage, isLoading, activeNoteId, currentNoteContent]);
+
 
   useEffect(() => {
-    if (activeNoteId) {
-      const updatedNotesContent = { ...notesContent, [activeNoteId]: currentNoteContent };
-      setNotesContent(updatedNotesContent);
-      // saveNotesContentToLocalStorage will be triggered by notesContent change
+    // This effect updates the notesContent state when currentNoteContent changes.
+    // The actual saving to localStorage is handled by the useEffect that watches notesContent.
+    if (activeNoteId && !isLoading) {
+      // Only update if content has actually changed to prevent unnecessary re-renders/saves
+      if (currentNoteContent !== (notesContent[activeNoteId] || '')) {
+        setNotesContent(prev => ({ ...prev, [activeNoteId as string]: currentNoteContent }));
+      }
     }
-  }, [currentNoteContent, activeNoteId]); // Removed notesContent from deps to avoid loop with its own save
+  }, [currentNoteContent, activeNoteId, isLoading]);
 
 
   // Save timer state to localStorage
   useEffect(() => {
-    if (sessionId && !isLoading) { // ensure not to save initial 0 if still loading
+    if (sessionId && !isLoading) { 
       localStorage.setItem(`learnlog-session-${sessionId}-timer`, sessionTime.toString());
       localStorage.setItem(`learnlog-session-${sessionId}-running`, isSessionRunning.toString());
     }
@@ -179,7 +185,7 @@ export default function StudySessionPage() {
           const finalNotes = { ...notesContent, [activeNoteId]: currentNoteContent };
           localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(finalNotes));
       }
-      localStorage.setItem(`learnlog-session-${sessionId}-tree`, JSON.stringify(treeData));
+      if (treeData.length > 0) localStorage.setItem(`learnlog-session-${sessionId}-tree`, JSON.stringify(treeData));
       localStorage.setItem(`learnlog-session-${sessionId}-timer`, sessionTime.toString());
       localStorage.setItem(`learnlog-session-${sessionId}-running`, 'false');
       router.push('/'); 
@@ -190,28 +196,28 @@ export default function StudySessionPage() {
 
   const handleNoteSelect = (nodeId: string, nodeType: TreeNode['type']) => {
     if (nodeType === 'note') {
-      if (activeNoteId && activeNoteId !== nodeId) {
-        // Save current note before switching
-        setNotesContent(prev => ({ ...prev, [activeNoteId]: currentNoteContent }));
+      if (activeNoteId && activeNoteId !== nodeId && currentNoteContent !== (notesContent[activeNoteId] || '')) {
+        setNotesContent(prev => ({ ...prev, [activeNoteId as string]: currentNoteContent }));
       }
       setActiveNoteId(nodeId);
       setCurrentNoteContent(notesContent[nodeId] || '');
     } else {
-      // If a folder/title is clicked, maybe just highlight it but don't change editor
-      setActiveNoteId(nodeId); // Or set to null if non-notes shouldn't clear editor
-      // setCurrentNoteContent(''); // Optionally clear editor or show placeholder
+      setActiveNoteId(nodeId); 
     }
   };
 
-  const addNodeToTree = (parentId: string | null, type: 'title' | 'subheading' | 'note') => {
-    const newNodeName = prompt(`Enter name for new ${type}:`);
-    if (!newNodeName) return;
+  const addNodeToTree = (parentId: string | null, type: 'title' | 'subheading' | 'note', name: string) => {
+    if (!name || name.trim() === '') {
+        // Potentially show a toast or inline error message instead of alert
+        alert("Node name cannot be empty.");
+        return;
+    }
 
     const newNode: TreeNode = {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      name: newNodeName,
+      name: name.trim(),
       type,
-      children: [],
+      children: type === 'note' ? undefined : [], // Notes don't have children in this model
       parentId: parentId,
     };
 
@@ -219,34 +225,33 @@ export default function StudySessionPage() {
       setNotesContent(prev => ({ ...prev, [newNode.id]: '' }));
     }
     
-    const addToChildren = (nodes: TreeNode[]): TreeNode[] => {
+    const updateTreeRecursively = (nodes: TreeNode[]): TreeNode[] => {
       return nodes.map(node => {
         if (node.id === parentId) {
           return { ...node, children: [...(node.children || []), newNode] };
         }
         if (node.children) {
-          return { ...node, children: addToChildren(node.children) };
+          return { ...node, children: updateTreeRecursively(node.children) };
         }
         return node;
       });
     };
 
-    if (parentId === null || parentId === 'root') { // Adding to the root (subject)
-       setTreeData(prevTree => {
-           if (prevTree.length > 0 && prevTree[0].id === 'root') {
-               const rootNode = prevTree[0];
-               return [{...rootNode, children: [...(rootNode.children || []), newNode]}];
-           }
-           return prevTree; // Should not happen if root always exists
-       });
-    } else {
-       setTreeData(prevTree => addToChildren(prevTree));
-    }
+    setTreeData(prevTree => {
+        if (!parentId || parentId === 'root') { // Adding to the root subject node
+            if (prevTree.length > 0 && prevTree[0].id === 'root') {
+                const rootNode = prevTree[0];
+                return [{...rootNode, children: [...(rootNode.children || []), newNode]}];
+            }
+            // This case should ideally not be reached if tree always has a root
+            return [...prevTree, newNode]; // Fallback: if root is not found or tree is empty
+        }
+        return updateTreeRecursively(prevTree);
+    });
   };
   
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCurrentNoteContent(e.target.value);
-    // Debounced save will be handled by useEffect on currentNoteContent/activeNoteId
   };
 
 
@@ -259,24 +264,28 @@ export default function StudySessionPage() {
     );
   }
   
-  const currentActiveNode = activeNoteId ? findNodeById(treeData, activeNoteId) : null;
+  const currentActiveNode = activeNoteId ? findNodeByIdRecursive(treeData, activeNoteId) : null;
   const isEditorActive = currentActiveNode?.type === 'note';
+
+  const wordCount = isEditorActive ? currentNoteContent.split(/\s+/).filter(Boolean).length : 0;
+  const saveStatus = activeNoteId ? (notesContent.hasOwnProperty(activeNoteId) && notesContent[activeNoteId] === currentNoteContent ? 'Saved' : 'Saving...') : 'No active note';
 
 
   return (
     <div className="flex flex-col h-screen bg-[#0A0A0A] text-foreground overflow-hidden">
-      <AppHeader />
+      {/* <AppHeader /> */} {/* AppHeader is in RootLayout */}
       
       <div className="flex flex-1 overflow-hidden">
         <SessionSidebar 
-          sessionSubject={sessionData.subject}
+          sessionSubject={notebookTitle} // Use notebookTitle state
           treeData={treeData}
           onSelectNode={handleNoteSelect}
           activeNodeId={activeNoteId}
           onAddNode={addNodeToTree}
+          // onRenameNode, onDeleteNode would be added here
         />
 
-        <main className="flex-1 flex flex-col p-4 md:p-6 overflow-y-auto relative custom-scrollbar">
+        <main className="flex-1 flex flex-col p-4 md:p-6 overflow-y-auto relative custom-scrollbar bg-[#0A0A0A]">
           
           <div className="flex items-center justify-end mb-4 space-x-2">
             <Button variant="outline" size="sm" onClick={toggleReferencePanel} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
@@ -291,44 +300,44 @@ export default function StudySessionPage() {
 
           <div className="flex flex-1 gap-4 min-h-0">
             <div 
-              className="relative flex-1 h-full flex flex-col" // Added flex flex-col
+              className="relative flex-1 h-full flex flex-col bg-[#0F0F0F] rounded-lg border border-white/10 shadow-inner"
             >
               <Textarea 
-                placeholder={isEditorActive ? "Start typing your notes here..." : "Select a note from the sidebar to begin editing."}
-                className="w-full flex-1 bg-[#0F0F0F] border-white/10 rounded-md p-4 text-base resize-none focus:ring-primary focus:border-primary font-code custom-scrollbar"
+                placeholder={isEditorActive ? "Start typing your notes here..." : "Select a note from the sidebar to begin editing, or create a new one."}
+                className="w-full flex-1 bg-transparent border-none rounded-t-md p-4 text-base resize-none focus:ring-0 focus:border-transparent font-code custom-scrollbar"
                 value={isEditorActive ? currentNoteContent : ''}
                 onChange={handleTextareaChange}
-                onFocus={() => setShowAiButtons(true)}
-                onBlur={() => setTimeout(() => setShowAiButtons(false), 100)} // Delay to allow AI button clicks
+                onFocus={() => setShowAiButtons(isEditorActive)}
+                onBlur={() => setTimeout(() => setShowAiButtons(false), 150)} 
                 disabled={!isEditorActive}
               />
               {isEditorActive && (
                 <div 
-                    className={`flex items-center justify-end space-x-2 p-2 bg-[#0F0F0F] border-t border-white/10 rounded-b-md transition-opacity duration-200 ${showAiButtons ? 'opacity-100' : 'opacity-0'}`}
+                    className={`flex items-center justify-end space-x-2 p-2 border-t border-white/10 rounded-b-md transition-opacity duration-200 ${showAiButtons ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 >
-                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-xs p-1.5">✨ Explain</Button>
-                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-xs p-1.5">📋 Summarize</Button>
-                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-xs p-1.5">⤴️ Expand</Button>
+                  <Button size="sm" variant="ghost" className="bg-white/5 hover:bg-white/10 backdrop-blur-sm text-xs p-1.5">✨ Explain</Button>
+                  <Button size="sm" variant="ghost" className="bg-white/5 hover:bg-white/10 backdrop-blur-sm text-xs p-1.5">📋 Summarize</Button>
+                  <Button size="sm" variant="ghost" className="bg-white/5 hover:bg-white/10 backdrop-blur-sm text-xs p-1.5">⤴️ Expand</Button>
                 </div>
               )}
             </div>
 
             {isReferencePanelOpen && (
-              <div className="w-[30%] h-full bg-[#0F0F0F] border-white/10 p-4 rounded-md flex flex-col overflow-y-auto custom-scrollbar">
+              <div className="w-[35%] max-w-[500px] h-full bg-[#0F0F0F] border-white/10 p-4 rounded-lg flex flex-col overflow-y-auto custom-scrollbar shadow-lg">
                 <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2 text-sm">
-                  <span>Reference Panel</span>
+                  <span className="font-semibold">Reference Panel</span>
                   <Button variant="ghost" size="icon" onClick={toggleReferencePanel} className="h-6 w-6 text-muted-foreground hover:text-foreground">
                     <X className="h-4 w-4"/>
                   </Button>
                 </div>
-                <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs">
                   PDF / Reference Viewer Area
                 </div>
               </div>
             )}
           </div>
           <div className="mt-4 text-xs text-muted-foreground text-right border-t border-white/10 pt-2">
-              Word Count: {isEditorActive ? currentNoteContent.split(/\s+/).filter(Boolean).length : 0} | {activeNoteId ? (notesContent.hasOwnProperty(activeNoteId) ? 'Saved' : 'Saving...') : 'No active note'}
+              Word Count: {wordCount} | {saveStatus}
           </div>
         </main>
       </div>
@@ -343,13 +352,21 @@ export default function StudySessionPage() {
 }
 
 // Helper function to find a node by ID in the tree
-export function findNodeById(nodes: TreeNode[], id: string): TreeNode | null {
+export function findNodeByIdRecursive(nodes: TreeNode[], id: string): TreeNode | null {
   for (const node of nodes) {
     if (node.id === id) return node;
     if (node.children) {
-      const found = findNodeById(node.children, id);
+      const found = findNodeByIdRecursive(node.children, id);
       if (found) return found;
     }
   }
   return null;
+}
+
+export default function StudySessionPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-[#0A0A0A]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+      <StudySessionPageContent />
+    </Suspense>
+  );
 }
