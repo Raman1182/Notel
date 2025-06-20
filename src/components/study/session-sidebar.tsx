@@ -4,6 +4,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronRight, FileText, FolderOpen, FolderClosed, BookText, Sparkles, History, Settings, ChevronsLeftRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface TreeItemData {
   id: string;
@@ -12,30 +13,23 @@ interface TreeItemData {
   children?: TreeItemData[];
 }
 
-const sampleTreeData: TreeItemData[] = [
-  // This will be replaced by dynamic data from notes later
-  // For now, the top-level item label is driven by notebookTitle prop
+// Sample static tree data, to be made dynamic later
+const sampleSubTreeData: TreeItemData[] = [
   { 
     id: 'chap1', 
-    label: 'Chapter 1: Wave-Particle Duality', 
+    label: 'Chapter 1: Introduction', 
     iconType: 'H2', 
     children: [
-      { id: 'chap1-intro', label: 'Introduction', iconType: 'H3' },
-      { id: 'chap1-experiments', label: 'Key Experiments', iconType: 'FILE' },
-      { id: 'chap1-implications', label: 'Implications', iconType: 'FILE' },
+      { id: 'chap1-intro', label: 'Overview', iconType: 'H3' },
+      { id: 'chap1-concepts', label: 'Key Concepts', iconType: 'FILE' },
     ]
   },
   { 
     id: 'chap2', 
-    label: 'Chapter 2: Schrödinger Equation', 
-    iconType: 'H2', 
-    children: [
-      { id: 'chap2-deriv', label: 'Derivation', iconType: 'H3' },
-      { id: 'chap2-solutions', label: 'Solutions & Examples', iconType: 'FILE' },
-    ]
+    label: 'Chapter 2: Core Mechanics', 
+    iconType: 'H2',
   },
-  { id: 'chap3', label: 'Chapter 3: Quantum Tunneling', iconType: 'H2' },
-  { id: 'references', label: 'References', iconType: 'FILE' },
+  { id: 'session-note', label: 'General Session Note', iconType: 'FILE' },
 ];
 
 const IconMap: Record<Required<TreeItemData>['iconType'], React.ElementType> = {
@@ -46,7 +40,7 @@ const IconMap: Record<Required<TreeItemData>['iconType'], React.ElementType> = {
 };
 
 const TreeItemDisplay: React.FC<{ item: TreeItemData; level: number; onSelect: (id: string) => void; activeId: string | null }> = ({ item, level, onSelect, activeId }) => {
-  const [isOpen, setIsOpen] = useState(level < 1); // Auto-open first level children
+  const [isOpen, setIsOpen] = useState(level < 1); 
   
   const hasChildren = item.children && item.children.length > 0;
   let ItemIcon = IconMap[item.iconType || 'FILE'];
@@ -54,8 +48,9 @@ const TreeItemDisplay: React.FC<{ item: TreeItemData; level: number; onSelect: (
   if (item.iconType === 'H2' && hasChildren) {
     ItemIcon = isOpen ? FolderOpen : FolderClosed;
   } else if (hasChildren && item.iconType === 'H3') {
-     ItemIcon = ChevronRight;
+     ItemIcon = ChevronRight; // Keep as chevron for H3, or specific icon if needed
   }
+
 
   const handleToggleOpen = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -66,8 +61,12 @@ const TreeItemDisplay: React.FC<{ item: TreeItemData; level: number; onSelect: (
   
   const handleSelect = () => {
     onSelect(item.id);
-    if (!hasChildren) return;
-    setIsOpen(!isOpen);
+    if (hasChildren && !isOpen) { // Only open if not already open on select
+        setIsOpen(true);
+    } else if (hasChildren && isOpen && item.iconType !== 'H1') { // allow H1 to re-toggle
+        // If it's already open and has children (and not H1), selecting again does not close it.
+        // To make it toggle open/close on re-select, add: setIsOpen(!isOpen);
+    }
   };
 
   return (
@@ -79,18 +78,20 @@ const TreeItemDisplay: React.FC<{ item: TreeItemData; level: number; onSelect: (
         style={{ paddingLeft: `${0.5 + level * 1}rem` }}
         onClick={handleSelect}
       >
-        {hasChildren ? (
+        {hasChildren && item.iconType !== 'H1' ? ( // H1 (root) doesn't get its own chevron from this logic
           <button onClick={handleToggleOpen} className="p-0.5 mr-1 rounded-sm hover:bg-white/20 focus:outline-none">
             <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-0' : '-rotate-90'}`} />
           </button>
         ) : (
-          <span className="w-4 mr-1.5 shrink-0"></span>
+           item.iconType !== 'H1' && <span className="w-4 mr-1.5 shrink-0"></span> // Space for non-children, non-H1
         )}
-        <ItemIcon className={`h-4 w-4 mr-2 shrink-0 ${item.iconType === 'H1' ? 'text-primary' : ''}`} />
+        {/* Icon for H1 is handled by its wrapper */}
+        {item.iconType !== 'H1' && <ItemIcon className={`h-4 w-4 mr-2 shrink-0 ${item.iconType === 'H1' ? 'text-primary' : ''}`} />}
         <span className="truncate flex-1 group-hover:text-foreground-opacity-100">{item.label}</span>
       </div>
       {isOpen && hasChildren && (
-        <div className="border-l border-white/10 ml-[calc(0.5rem_+_1rem_*_0.5_+_1px_)]" style={{ paddingLeft: `${level === 0 ? 0 : 0.75}rem`}}>
+        // For H1, children are indented normally. For others, slightly more.
+        <div className={`border-l border-white/10 ml-[calc(0.5rem_+_0.5rem_+_0.25rem)]`} style={{ paddingLeft: `${level === -1 ? 0 : 0.75}rem`}}>
           {item.children?.map(child => (
             <TreeItemDisplay key={child.id} item={child} level={level + 1} onSelect={onSelect} activeId={activeId} />
           ))}
@@ -101,16 +102,20 @@ const TreeItemDisplay: React.FC<{ item: TreeItemData; level: number; onSelect: (
 };
 
 interface SessionSidebarProps {
-  notebookTitle: string;
-  onNotebookTitleChange: (title: string) => void;
+  sessionSubject: string;
 }
 
-export function SessionSidebar({ notebookTitle, onNotebookTitleChange }: SessionSidebarProps) {
+export function SessionSidebar({ sessionSubject }: SessionSidebarProps) {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  // The overall session subject is now passed as a prop. 
+  // If we want an editable title within the sidebar for the session, it can be added.
+  // For now, using sessionSubject directly.
 
   const handleSelectNote = (id: string) => {
     setActiveNoteId(id);
+    // Here, you would typically load the content for the selected note/section into the main editor
+    console.log("Selected note/section ID:", id);
   };
 
   if (isCollapsed) {
@@ -119,7 +124,7 @@ export function SessionSidebar({ notebookTitle, onNotebookTitleChange }: Session
         <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(false)} className="hover:bg-white/20">
           <ChevronsLeftRight className="h-5 w-5 transform rotate-180" />
         </Button>
-        <BookText className="h-6 w-6 text-primary cursor-pointer hover:opacity-80" title={notebookTitle || "Notebook"}/>
+        <BookText className="h-6 w-6 text-primary cursor-pointer hover:opacity-80" title={sessionSubject || "Notebook"}/>
         <Sparkles className="h-6 w-6 text-foreground-opacity-70 cursor-pointer hover:opacity-80" title="AI Tools"/>
         <History className="h-6 w-6 text-foreground-opacity-70 cursor-pointer hover:opacity-80" title="Revision History"/>
         <Settings className="h-6 w-6 text-foreground-opacity-70 cursor-pointer hover:opacity-80 mt-auto" title="Session Settings"/>
@@ -127,25 +132,32 @@ export function SessionSidebar({ notebookTitle, onNotebookTitleChange }: Session
     );
   }
 
+  // Root node for the tree, using sessionSubject
+  const rootTreeItem: TreeItemData = {
+    id: 'session-root',
+    label: sessionSubject,
+    iconType: 'H1', // Represents the main subject/notebook
+    children: sampleSubTreeData, // Static children for now
+  };
+
   return (
     <div className="w-[280px] h-full bg-[#0F0F0F] text-white p-4 flex flex-col shrink-0 overflow-y-auto custom-scrollbar transition-all duration-300 ease-in-out border-r border-white/10">
-      <div className="flex items-center justify-between mb-3">
-        <input 
-          type="text" 
-          value={notebookTitle}
-          onChange={(e) => onNotebookTitleChange(e.target.value)}
-          className="w-full bg-transparent text-lg font-semibold border-0 border-b-2 border-transparent focus:border-primary focus:ring-0 outline-none placeholder-muted-foreground truncate mr-2"
-          placeholder="Notebook Title"
-        />
-        <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(true)} className="hover:bg-white/20">
+      <div className="flex items-center justify-between mb-1">
+        {/* Displaying session subject as a non-editable title here, or could use an Input if desired */}
+        <div className="flex items-center gap-2 w-full mr-2">
+            <BookText className="h-5 w-5 text-primary flex-shrink-0" />
+            <h2 className="text-lg font-semibold truncate" title={sessionSubject}>
+                {sessionSubject}
+            </h2>
+        </div>
+        <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(true)} className="hover:bg-white/20 flex-shrink-0">
           <ChevronsLeftRight className="h-5 w-5" />
         </Button>
       </div>
-      <div className="flex-1">
-        {/* The first item is the notebook itself, its children are the actual sections */}
+      <div className="flex-1 -ml-2"> {/* Negative margin to align TreeItemDisplay padding */}
          <TreeItemDisplay 
-            item={{ id: 'notebook-root', label: 'Content Outline', iconType: 'H1', children: sampleTreeData }} 
-            level={-1} // Special level to hide its own expander/icon for root
+            item={rootTreeItem} 
+            level={-1} // Root level is special
             onSelect={handleSelectNote} 
             activeId={activeNoteId}
           />

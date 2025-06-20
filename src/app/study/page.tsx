@@ -1,199 +1,23 @@
 
+// This file is effectively deprecated and replaced by src/app/study/[sessionId]/page.tsx
+// It can be deleted or kept for reference.
+// For now, I will clear its content to avoid confusion or accidental usage.
+// If you need to redirect from /study to /study/launch, that logic would go here or in middleware.
+
+// For now, let's make it a simple redirect to the launch page.
 'use client';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-import { useEffect, useState, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { AppHeader } from '@/components/shared/app-header';
-import { Textarea } from '@/components/ui/textarea';
-import { SettingsProvider } from '@/components/settings-provider';
-import { SessionSidebar } from '@/components/study/session-sidebar';
-import { FloatingTimerWidget } from '@/components/study/floating-timer-widget';
-import { Paperclip, StickyNote } from 'lucide-react';
-
-// Debounce utility
-function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
-  let timeout: NodeJS.Timeout | null = null;
-
-  const debounced = (...args: Parameters<F>) => {
-    if (timeout !== null) {
-      clearTimeout(timeout);
-      timeout = null;
-    }
-    timeout = setTimeout(() => func(...args), waitFor);
-  };
-
-  return debounced as (...args: Parameters<F>) => ReturnType<F>;
-}
-
-function StudySessionContent() {
-  const searchParams = useSearchParams();
-  const routerSubject = searchParams.get('subject');
-  // const routerDuration = searchParams.get('duration'); // For future use
-
-  const [isReferencePanelOpen, setIsReferencePanelOpen] = useState(false);
-  const [showAiButtons, setShowAiButtons] = useState(false);
-
-  const [notebookTitle, setNotebookTitle] = useState('Untitled Session');
-  const [noteContent, setNoteContent] = useState('');
-
-  const [sessionTime, setSessionTime] = useState(0);
-  const [isSessionRunning, setIsSessionRunning] = useState(true); // Start running by default
-
-  // Load from localStorage on mount
+export default function OldStudyPageRedirect() {
+  const router = useRouter();
   useEffect(() => {
-    const savedTitle = localStorage.getItem('learnlog-study-title');
-    const savedContent = localStorage.getItem('learnlog-study-content');
-    const savedTime = localStorage.getItem('learnlog-study-time');
-    const savedRunning = localStorage.getItem('learnlog-study-running');
-
-    if (routerSubject) {
-      setNotebookTitle(decodeURIComponent(routerSubject));
-    } else if (savedTitle) {
-      setNotebookTitle(savedTitle);
-    }
-
-    if (savedContent) setNoteContent(savedContent);
-    if (savedTime) setSessionTime(parseInt(savedTime, 10));
-    if (savedRunning) setIsSessionRunning(savedRunning === 'true');
-    else setIsSessionRunning(true); // Default to running if no saved state
-    
-  }, [routerSubject]);
-
-  // Save title to localStorage (debounced)
-  const saveTitleToLocalStorage = useCallback(
-    debounce((title: string) => {
-      localStorage.setItem('learnlog-study-title', title);
-    }, 500),
-    []
-  );
-
-  useEffect(() => {
-     // Avoid saving initial default "Untitled Session" immediately unless it's from router
-    if (notebookTitle !== 'Untitled Session' || routerSubject || localStorage.getItem('learnlog-study-title')) {
-        saveTitleToLocalStorage(notebookTitle);
-    }
-  }, [notebookTitle, saveTitleToLocalStorage, routerSubject]);
-
-  // Save content to localStorage (debounced)
-  const saveContentToLocalStorage = useCallback(
-    debounce((content: string) => {
-      localStorage.setItem('learnlog-study-content', content);
-    }, 500),
-    []
-  );
-
-  useEffect(() => {
-    if (noteContent !== '' || localStorage.getItem('learnlog-study-content')) { 
-        saveContentToLocalStorage(noteContent);
-    }
-  }, [noteContent, saveContentToLocalStorage]);
-  
-  // Save timer state to localStorage
-  useEffect(() => {
-    localStorage.setItem('learnlog-study-time', sessionTime.toString());
-    localStorage.setItem('learnlog-study-running', isSessionRunning.toString());
-  }, [sessionTime, isSessionRunning]);
-
-
-  // Timer logic
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (isSessionRunning) {
-      interval = setInterval(() => {
-        setSessionTime(prevTime => prevTime + 1);
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isSessionRunning]);
-
-  const toggleSessionRunning = () => {
-    setIsSessionRunning(prev => !prev);
-  };
-
-  const toggleReferencePanel = () => setIsReferencePanelOpen(prev => !prev);
+    router.replace('/study/launch');
+  }, [router]);
 
   return (
-    <div className="flex flex-col h-screen bg-[#0A0A0A] text-foreground overflow-hidden">
-      <AppHeader />
-      
-      <div className="flex flex-1 overflow-hidden">
-        <SessionSidebar 
-          notebookTitle={notebookTitle}
-          onNotebookTitleChange={setNotebookTitle}
-        />
-
-        <main className="flex-1 flex flex-col p-4 md:p-6 overflow-y-auto relative custom-scrollbar">
-          
-          <div className="flex items-center justify-end mb-4 space-x-2">
-            <Button variant="outline" size="sm" onClick={toggleReferencePanel} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
-              <Paperclip className="h-4 w-4 mr-2" />
-              Add PDF
-            </Button>
-            <Button variant="outline" size="sm" onClick={toggleReferencePanel} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
-              <StickyNote className="h-4 w-4 mr-2" />
-              Previous Notes
-            </Button>
-          </div>
-
-          <div className="flex flex-1 gap-4 min-h-0">
-            <div 
-              className="relative flex-1 h-full"
-              onMouseEnter={() => setShowAiButtons(true)}
-              onMouseLeave={() => setShowAiButtons(false)}
-            >
-              <Textarea 
-                placeholder="Start typing your notes here..." 
-                className="w-full h-full bg-[#0F0F0F] border-white/10 rounded-md p-4 text-base resize-none focus:ring-primary focus:border-primary font-code custom-scrollbar"
-                value={noteContent}
-                onChange={(e) => setNoteContent(e.target.value)}
-              />
-              {showAiButtons && (
-                <div className="absolute bottom-4 right-4 flex space-x-2">
-                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-xs p-1.5">✨ Explain</Button>
-                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-xs p-1.5">📋 Summarize</Button>
-                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-xs p-1.5">⤴️ Expand</Button>
-                </div>
-              )}
-            </div>
-
-            {isReferencePanelOpen && (
-              <div className="w-[40%] h-full bg-[#0F0F0F] border-white/10 p-4 rounded-md flex flex-col overflow-y-auto custom-scrollbar">
-                <div className="flex items-center border-b border-white/10 pb-2 mb-2 text-sm">
-                  <span className="px-3 py-1 bg-primary/20 text-primary rounded-t-md">Physics.pdf</span>
-                  <span className="px-3 py-1 text-muted-foreground hover:bg-white/5 rounded-t-md">Chapter1.pdf</span>
-                  <button className="ml-auto text-muted-foreground hover:text-foreground">&times;</button>
-                </div>
-                <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                  PDF / Previous Notes Viewer Area
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="mt-4 text-xs text-muted-foreground text-right border-t border-white/10 pt-2">
-              Word Count: {noteContent.split(/\s+/).filter(Boolean).length} | Saved
-          </div>
-        </main>
-      </div>
-      <FloatingTimerWidget 
-          timeInSeconds={sessionTime}
-          isRunning={isSessionRunning}
-          onTogglePlayPause={toggleSessionRunning}
-      />
+    <div className="flex flex-col h-screen bg-[#0A0A0A] text-foreground items-center justify-center">
+      <p>Redirecting to study session launcher...</p>
     </div>
   );
 }
-
-export default function StudySessionPage() {
-  return (
-    <SettingsProvider>
-      <Suspense fallback={<div>Loading session details...</div>}>
-        <StudySessionContent />
-      </Suspense>
-    </SettingsProvider>
-  );
-}
-
-    

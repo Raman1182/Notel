@@ -3,14 +3,14 @@
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Pause, Play, Square } from 'lucide-react'; // Added Square for end session
+import { Pause, Play, Square } from 'lucide-react';
 import React from 'react';
 
 interface FloatingTimerWidgetProps {
   timeInSeconds: number;
   isRunning: boolean;
   onTogglePlayPause: () => void;
-  onEndSession?: () => void; // Optional: for future use to properly end and save session
+  onEndSession?: () => void;
   className?: string;
 }
 
@@ -32,41 +32,39 @@ export function FloatingTimerWidget({
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // For now, the widget is fixed. Draggability and complex expansion will be later.
   return (
     <div
       className={cn(
-        "fixed bottom-6 right-6 z-50 flex items-center justify-center p-2 rounded-full bg-background/80 backdrop-blur-md shadow-xl border border-border",
+        "fixed top-5 right-5 z-50 flex items-center justify-center p-2 rounded-full bg-background/80 backdrop-blur-md shadow-xl border border-border",
         "transition-all duration-300 ease-out",
         isRunning && "animate-pulse-subtle ring-2 ring-primary ring-offset-2 ring-offset-background",
         className
       )}
     >
-      <div className="flex items-center space-x-3">
-        <span className="text-lg font-mono font-medium text-foreground tabular-nums min-w-[60px] text-center">
+      <div className="flex items-center space-x-2"> {/* Reduced space for more compact look */}
+        <span className="text-base font-mono font-medium text-foreground tabular-nums min-w-[50px] sm:min-w-[60px] text-center px-1"> {/* Adjusted padding and size */}
           {formatTime(timeInSeconds)}
         </span>
         <Button
           variant="ghost"
           size="icon"
           onClick={onTogglePlayPause}
-          className="h-9 w-9 rounded-full hover:bg-primary/20 text-primary"
+          className="h-8 w-8 sm:h-9 sm:w-9 rounded-full hover:bg-primary/20 text-primary"
           aria-label={isRunning ? 'Pause timer' : 'Start timer'}
         >
-          {isRunning ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+          {isRunning ? <Pause className="h-4 w-4 sm:h-5 sm:w-5" /> : <Play className="h-4 w-4 sm:h-5 sm:w-5" />}
         </Button>
-        {/* Placeholder for end session button - can be enabled later */}
-        {/* {onEndSession && (
+        {onEndSession && (
           <Button
             variant="ghost"
             size="icon"
             onClick={onEndSession}
-            className="h-9 w-9 rounded-full hover:bg-destructive/20 text-destructive"
+            className="h-8 w-8 sm:h-9 sm:w-9 rounded-full hover:bg-destructive/20 text-destructive"
             aria-label="End session"
           >
-            <Square className="h-5 w-5" />
+            <Square className="h-4 w-4 sm:h-5 sm:w-5" />
           </Button>
-        )} */}
+        )}
       </div>
     </div>
   );
