@@ -25,6 +25,22 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   return debounced as (...args: Parameters<F>) => ReturnType<F>;
 }
 
+// Helper function to find the first note in a tree
+function findFirstNoteRecursive(nodes: TreeNode[]): TreeNode | null {
+  for (const node of nodes) {
+    if (node.type === 'note') {
+      return node;
+    }
+    if (node.children) {
+      const foundInChild = findFirstNoteRecursive(node.children);
+      if (foundInChild) {
+        return foundInChild;
+      }
+    }
+  }
+  return null;
+}
+
 
 function StudySessionPageContent() {
   const params = useParams();
@@ -153,7 +169,7 @@ function StudySessionPageContent() {
     if (!isLoading && activeNoteId && currentNoteContent !== (notesContent[activeNoteId] || '')) {
         setNotesContent(prev => ({ ...prev, [activeNoteId as string]: currentNoteContent }));
     }
-  }, [currentNoteContent, activeNoteId, isLoading]);
+  }, [currentNoteContent, activeNoteId, isLoading, notesContent]); // Added notesContent to dependency array
 
   useEffect(() => {
     if (!isLoading && Object.keys(notesContent).length > 0) {
@@ -204,14 +220,24 @@ function StudySessionPageContent() {
       if (activeNoteId && activeNoteId !== nodeId && currentNoteContent !== (notesContent[activeNoteId] || '')) {
          setNotesContent(prev => {
             const updatedNotes = { ...prev, [activeNoteId as string]: currentNoteContent };
-            localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(updatedNotes));
+            // Direct save here to ensure previous note is saved before switching
+            localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(updatedNotes)); 
             return updatedNotes;
         });
       }
       setActiveNoteId(nodeId);
       setCurrentNoteContent(notesContent[nodeId] || '');
     } else {
-      setActiveNoteId(nodeId); // Allow selecting non-note items to see their name, but editor remains disabled
+      // If a non-note item is selected, we can save the current note if active
+      if (activeNoteId && currentNoteContent !== (notesContent[activeNoteId] || '')) {
+         setNotesContent(prev => {
+            const updatedNotes = { ...prev, [activeNoteId as string]: currentNoteContent };
+            localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(updatedNotes));
+            return updatedNotes;
+        });
+      }
+      setActiveNoteId(nodeId); 
+      // setCurrentNoteContent(''); // Optionally clear editor or show item name
     }
   };
 
@@ -235,11 +261,15 @@ function StudySessionPageContent() {
     
     const updateTreeRecursively = (nodes: TreeNode[], pId: string | null): TreeNode[] => {
       if (pId === null ) { 
+        // This case should ideally not be hit if we always add to 'root' or another existing node.
+        // If adding to the very top level (no root yet, which shouldn't happen with current setup),
+        // or if treeData is an array of roots (not our case with a single 'root' subject node).
+        // For our single root 'subject' node:
         if (nodes.length > 0 && nodes[0].id === 'root' && nodes[0].type === 'subject') { 
             const rootNode = nodes[0];
             return [{ ...rootNode, children: [...(rootNode.children || []), newNode] }];
         }
-        return [...nodes, newNode]; 
+        return [...nodes, newNode]; // Fallback, though less likely in current structure
       }
       return nodes.map(node => {
         if (node.id === pId) {
@@ -345,7 +375,18 @@ function StudySessionPageContent() {
   const isEditorActive = currentActiveNode?.type === 'note';
 
   const wordCount = isEditorActive ? currentNoteContent.trim().split(/\s+/).filter(Boolean).length : 0;
-  const saveStatus = activeNoteId ? (notesContent.hasOwnProperty(activeNoteId) && notesContent[activeNoteId] === currentNoteContent ? 'Saved' : 'Saving...') : 'No active note';
+  
+  let saveStatus = 'No active note';
+  if (activeNoteId) {
+    const savedContent = notesContent[activeNoteId];
+    if (savedContent === undefined && currentNoteContent === '') { // New note, not yet saved, empty
+        saveStatus = 'Saved'; // Or 'Ready to type'
+    } else if (savedContent === currentNoteContent) {
+        saveStatus = 'Saved';
+    } else {
+        saveStatus = 'Saving...';
+    }
+  }
 
 
   return (
@@ -467,5 +508,3 @@ export default function StudySessionPage() {
   );
 }
 
-
-    
