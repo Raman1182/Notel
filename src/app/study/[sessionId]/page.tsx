@@ -1,14 +1,13 @@
 
 'use client';
 
-import { useEffect, useState, useCallback, Key, Suspense } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { AppHeader } from '@/components/shared/app-header';
 import { Textarea } from '@/components/ui/textarea';
 import { SessionSidebar, type TreeNode } from '@/components/study/session-sidebar';
 import { FloatingTimerWidget } from '@/components/study/floating-timer-widget';
-import { Paperclip, StickyNote, Loader2, X } from 'lucide-react';
+import { Paperclip, StickyNote, Loader2, X, Settings, Zap, CheckSquare, ChevronDown } from 'lucide-react';
 import type { SessionData } from '@/app/study/launch/page'; 
 
 // Debounce utility
@@ -28,7 +27,6 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
 function StudySessionPageContent() {
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const sessionId = params.sessionId as string;
 
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
@@ -56,29 +54,29 @@ function StudySessionPageContent() {
       if (storedSessionDataJSON) {
         const parsedSessionData: SessionData = JSON.parse(storedSessionDataJSON);
         setSessionData(parsedSessionData);
-        setNotebookTitle(parsedSessionData.subject); // Initialize notebook title
+        setNotebookTitle(parsedSessionData.subject); 
 
         const storedTreeJSON = localStorage.getItem(`learnlog-session-${sessionId}-tree`);
-        const parsedTree: TreeNode[] = storedTreeJSON ? JSON.parse(storedTreeJSON) : [{ id: 'root', name: parsedSessionData.subject, type: 'subject', children: [], parentId: null }];
-        setTreeData(parsedTree);
+        const parsedTreeData: TreeNode[] = storedTreeJSON ? JSON.parse(storedTreeJSON) : [{ id: 'root', name: parsedSessionData.subject, type: 'subject', children: [], parentId: null }];
+        setTreeData(parsedTreeData);
         
         const storedNotesContentJSON = localStorage.getItem(`learnlog-session-${sessionId}-notesContent`);
         const parsedNotesContent: Record<string, string> = storedNotesContentJSON ? JSON.parse(storedNotesContentJSON) : {};
         setNotesContent(parsedNotesContent);
 
-        // Auto-select the first note if available or the default created one
-        const firstNoteInTree = findFirstNoteRecursive(parsedTree);
+        const firstNoteInTree = findFirstNoteRecursive(parsedTreeData);
         if (firstNoteInTree) {
           setActiveNoteId(firstNoteInTree.id);
           setCurrentNoteContent(parsedNotesContent[firstNoteInTree.id] || '');
-        } else if (parsedTree[0]?.children?.find(child => child.type === 'note')) {
-            const defaultNote = parsedTree[0].children.find(child => child.type === 'note');
-            if (defaultNote) {
-                setActiveNoteId(defaultNote.id);
-                setCurrentNoteContent(parsedNotesContent[defaultNote.id] || '');
-            }
+        } else {
+          // Auto-select the first note child of the root if it exists
+          const rootNode = parsedTreeData.find(node => node.type === 'subject');
+          const firstChildNote = rootNode?.children?.find(child => child.type === 'note');
+          if (firstChildNote) {
+            setActiveNoteId(firstChildNote.id);
+            setCurrentNoteContent(parsedNotesContent[firstChildNote.id] || '');
+          }
         }
-
 
         const savedTime = localStorage.getItem(`learnlog-session-${sessionId}-timer`);
         if (savedTime) setSessionTime(parseInt(savedTime, 10));
@@ -88,11 +86,12 @@ function StudySessionPageContent() {
 
       } else {
         console.error("Session data not found for ID:", sessionId);
-        // router.push('/study/launch'); // Keep user on page, show error?
+        // Consider redirecting or showing a more user-friendly error
+        router.push('/study/launch'); 
       }
     } catch (error) {
       console.error("Error loading session data:", error);
-      // router.push('/study/launch');
+      router.push('/study/launch');
     } finally {
       setIsLoading(false);
     }
@@ -109,10 +108,9 @@ function StudySessionPageContent() {
     return null;
   };
 
-
   const saveTreeToLocalStorage = useCallback(
     debounce((newTree: TreeNode[]) => {
-      if (sessionId && newTree.length > 0) { // ensure tree is not empty before saving
+      if (sessionId && newTree.length > 0) { 
         localStorage.setItem(`learnlog-session-${sessionId}-tree`, JSON.stringify(newTree));
       }
     }, 1000),
@@ -129,13 +127,12 @@ function StudySessionPageContent() {
   );
   
   useEffect(() => {
-    if (treeData.length > 0 && !isLoading) { // ensure not to save initial empty or partially loaded tree
+    if (treeData.length > 0 && !isLoading) {
         saveTreeToLocalStorage(treeData);
     }
   }, [treeData, saveTreeToLocalStorage, isLoading]);
 
   useEffect(() => {
-     // Save notes if there's content or if the current note differs from stored
     if (!isLoading && (Object.keys(notesContent).length > 0 || (activeNoteId && currentNoteContent !== (notesContent[activeNoteId] || '')))) {
         saveNotesContentToLocalStorage(notesContent);
     }
@@ -143,10 +140,7 @@ function StudySessionPageContent() {
 
 
   useEffect(() => {
-    // This effect updates the notesContent state when currentNoteContent changes.
-    // The actual saving to localStorage is handled by the useEffect that watches notesContent.
     if (activeNoteId && !isLoading) {
-      // Only update if content has actually changed to prevent unnecessary re-renders/saves
       if (currentNoteContent !== (notesContent[activeNoteId] || '')) {
         setNotesContent(prev => ({ ...prev, [activeNoteId as string]: currentNoteContent }));
       }
@@ -180,7 +174,6 @@ function StudySessionPageContent() {
   const handleEndSession = () => {
     if (window.confirm("Are you sure you want to end this study session?")) {
       setIsSessionRunning(false);
-      // Save final state before navigating
       if (activeNoteId) {
           const finalNotes = { ...notesContent, [activeNoteId]: currentNoteContent };
           localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(finalNotes));
@@ -197,57 +190,56 @@ function StudySessionPageContent() {
   const handleNoteSelect = (nodeId: string, nodeType: TreeNode['type']) => {
     if (nodeType === 'note') {
       if (activeNoteId && activeNoteId !== nodeId && currentNoteContent !== (notesContent[activeNoteId] || '')) {
+        // Save current note before switching
         setNotesContent(prev => ({ ...prev, [activeNoteId as string]: currentNoteContent }));
       }
       setActiveNoteId(nodeId);
       setCurrentNoteContent(notesContent[nodeId] || '');
     } else {
-      setActiveNoteId(nodeId); 
+      // If selecting a folder-like item, you might want to clear the editor or show a placeholder
+      setActiveNoteId(nodeId); // Still track active selection for context
+      // setCurrentNoteContent(''); // Or some placeholder text
     }
   };
 
   const addNodeToTree = (parentId: string | null, type: 'title' | 'subheading' | 'note', name: string) => {
     if (!name || name.trim() === '') {
-        // Potentially show a toast or inline error message instead of alert
-        alert("Node name cannot be empty.");
+        console.warn("Node name cannot be empty."); // Use console.warn or toast for user feedback
         return;
     }
 
     const newNode: TreeNode = {
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      id: `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       name: name.trim(),
       type,
-      children: type === 'note' ? undefined : [], // Notes don't have children in this model
+      children: type === 'note' ? undefined : [], 
       parentId: parentId,
     };
 
     if (type === 'note') {
-      setNotesContent(prev => ({ ...prev, [newNode.id]: '' }));
+      setNotesContent(prev => ({ ...prev, [newNode.id]: '' })); // Initialize empty content for new note
     }
     
-    const updateTreeRecursively = (nodes: TreeNode[]): TreeNode[] => {
+    const updateTreeRecursively = (nodes: TreeNode[], pId: string | null): TreeNode[] => {
+      if (pId === null || pId === 'root') { // Adding to root
+        if (nodes.length > 0 && nodes[0].id === 'root' && nodes[0].type === 'subject') {
+          const rootNode = nodes[0];
+          return [{...rootNode, children: [...(rootNode.children || []), newNode]}];
+        }
+        return [...nodes, newNode]; // Should not happen if root always exists
+      }
       return nodes.map(node => {
-        if (node.id === parentId) {
+        if (node.id === pId) {
           return { ...node, children: [...(node.children || []), newNode] };
         }
         if (node.children) {
-          return { ...node, children: updateTreeRecursively(node.children) };
+          return { ...node, children: updateTreeRecursively(node.children, pId) };
         }
         return node;
       });
     };
-
-    setTreeData(prevTree => {
-        if (!parentId || parentId === 'root') { // Adding to the root subject node
-            if (prevTree.length > 0 && prevTree[0].id === 'root') {
-                const rootNode = prevTree[0];
-                return [{...rootNode, children: [...(rootNode.children || []), newNode]}];
-            }
-            // This case should ideally not be reached if tree always has a root
-            return [...prevTree, newNode]; // Fallback: if root is not found or tree is empty
-        }
-        return updateTreeRecursively(prevTree);
-    });
+    
+    setTreeData(prevTree => updateTreeRecursively(prevTree, parentId));
   };
   
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -267,65 +259,70 @@ function StudySessionPageContent() {
   const currentActiveNode = activeNoteId ? findNodeByIdRecursive(treeData, activeNoteId) : null;
   const isEditorActive = currentActiveNode?.type === 'note';
 
-  const wordCount = isEditorActive ? currentNoteContent.split(/\s+/).filter(Boolean).length : 0;
+  const wordCount = isEditorActive ? currentNoteContent.trim().split(/\s+/).filter(Boolean).length : 0;
   const saveStatus = activeNoteId ? (notesContent.hasOwnProperty(activeNoteId) && notesContent[activeNoteId] === currentNoteContent ? 'Saved' : 'Saving...') : 'No active note';
 
 
   return (
     <div className="flex flex-col h-screen bg-[#0A0A0A] text-foreground overflow-hidden">
-      {/* <AppHeader /> */} {/* AppHeader is in RootLayout */}
       
       <div className="flex flex-1 overflow-hidden">
         <SessionSidebar 
-          sessionSubject={notebookTitle} // Use notebookTitle state
+          sessionSubject={notebookTitle} 
           treeData={treeData}
           onSelectNode={handleNoteSelect}
           activeNodeId={activeNoteId}
           onAddNode={addNodeToTree}
-          // onRenameNode, onDeleteNode would be added here
         />
 
         <main className="flex-1 flex flex-col p-4 md:p-6 overflow-y-auto relative custom-scrollbar bg-[#0A0A0A]">
           
-          <div className="flex items-center justify-end mb-4 space-x-2">
-            <Button variant="outline" size="sm" onClick={toggleReferencePanel} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
-              <Paperclip className="h-4 w-4 mr-2" />
-              Add PDF
-            </Button>
-            <Button variant="outline" size="sm" onClick={toggleReferencePanel} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
-              <StickyNote className="h-4 w-4 mr-2" />
-              Previous Notes
-            </Button>
+          <div className="flex items-center justify-between mb-4">
+             {/* Breadcrumb placeholder */}
+            <div className="text-sm text-muted-foreground">
+                {notebookTitle} {activeNoteId && currentActiveNode ? `/ ${currentActiveNode.name}` : ''}
+            </div>
+            <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm" onClick={toggleReferencePanel} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
+                <Paperclip className="h-4 w-4 mr-2" />
+                Add PDF
+                </Button>
+                <Button variant="outline" size="sm" onClick={toggleReferencePanel} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
+                <StickyNote className="h-4 w-4 mr-2" />
+                Previous Notes
+                </Button>
+            </div>
           </div>
 
-          <div className="flex flex-1 gap-4 min-h-0">
+
+          <div className="flex flex-1 gap-4 min-h-0"> {/* Ensure parent has min-h-0 for flex children to shrink */}
             <div 
               className="relative flex-1 h-full flex flex-col bg-[#0F0F0F] rounded-lg border border-white/10 shadow-inner"
             >
               <Textarea 
                 placeholder={isEditorActive ? "Start typing your notes here..." : "Select a note from the sidebar to begin editing, or create a new one."}
-                className="w-full flex-1 bg-transparent border-none rounded-t-md p-4 text-base resize-none focus:ring-0 focus:border-transparent font-code custom-scrollbar"
+                className="w-full flex-1 bg-transparent border-none rounded-t-md p-6 text-base resize-none focus:ring-0 focus:border-transparent font-code custom-scrollbar"
                 value={isEditorActive ? currentNoteContent : ''}
                 onChange={handleTextareaChange}
                 onFocus={() => setShowAiButtons(isEditorActive)}
-                onBlur={() => setTimeout(() => setShowAiButtons(false), 150)} 
+                onBlur={() => setTimeout(() => setShowAiButtons(false), 200)} // Delay to allow clicking AI buttons
                 disabled={!isEditorActive}
               />
               {isEditorActive && (
                 <div 
                     className={`flex items-center justify-end space-x-2 p-2 border-t border-white/10 rounded-b-md transition-opacity duration-200 ${showAiButtons ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 >
-                  <Button size="sm" variant="ghost" className="bg-white/5 hover:bg-white/10 backdrop-blur-sm text-xs p-1.5">✨ Explain</Button>
-                  <Button size="sm" variant="ghost" className="bg-white/5 hover:bg-white/10 backdrop-blur-sm text-xs p-1.5">📋 Summarize</Button>
-                  <Button size="sm" variant="ghost" className="bg-white/5 hover:bg-white/10 backdrop-blur-sm text-xs p-1.5">⤴️ Expand</Button>
+                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-primary/20 backdrop-blur-sm text-xs p-1.5 px-2 text-foreground-opacity-70 hover:text-foreground">✨ Explain</Button>
+                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-primary/20 backdrop-blur-sm text-xs p-1.5 px-2 text-foreground-opacity-70 hover:text-foreground">📋 Summarize</Button>
+                  <Button size="sm" variant="ghost" className="bg-white/10 hover:bg-primary/20 backdrop-blur-sm text-xs p-1.5 px-2 text-foreground-opacity-70 hover:text-foreground">⤴️ Expand</Button>
                 </div>
               )}
             </div>
 
             {isReferencePanelOpen && (
-              <div className="w-[35%] max-w-[500px] h-full bg-[#0F0F0F] border-white/10 p-4 rounded-lg flex flex-col overflow-y-auto custom-scrollbar shadow-lg">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2 text-sm">
-                  <span className="font-semibold">Reference Panel</span>
+              <div className="w-[35%] max-w-[500px] h-full bg-[#0F0F0F] border border-white/10 p-4 rounded-lg flex flex-col overflow-y-auto custom-scrollbar shadow-lg">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-3">
+                  <span className="font-semibold text-sm">Reference Panel</span>
                   <Button variant="ghost" size="icon" onClick={toggleReferencePanel} className="h-6 w-6 text-muted-foreground hover:text-foreground">
                     <X className="h-4 w-4"/>
                   </Button>
@@ -336,8 +333,10 @@ function StudySessionPageContent() {
               </div>
             )}
           </div>
-          <div className="mt-4 text-xs text-muted-foreground text-right border-t border-white/10 pt-2">
-              Word Count: {wordCount} | {saveStatus}
+          {/* Status Bar */}
+          <div className="mt-3 text-xs text-muted-foreground text-right border-t border-white/10 pt-2 flex justify-between items-center">
+              <span>Word Count: {wordCount}</span>
+              <span>{saveStatus}</span>
           </div>
         </main>
       </div>
@@ -370,3 +369,4 @@ export default function StudySessionPage() {
     </Suspense>
   );
 }
+
