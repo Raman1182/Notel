@@ -47,7 +47,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar side="right" collapsible="icon" variant="floating">
+    <Sidebar side="left" collapsible="icon" variant="floating">
       <SidebarHeader className="p-4 border-b-0 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center">
         <Link href="/" className="flex items-center gap-2">
           <Sparkles className="h-7 w-7 text-primary transition-all duration-300 group-hover:rotate-[20deg]" />
@@ -77,7 +77,7 @@ export function AppSidebar() {
                 <SidebarMenuButton
                   isActive={pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))}
                   tooltip={item.label}
-                  className="group-data-[collapsible=icon]:justify-start"
+                  className="group-data-[collapsible=icon]:justify-start" 
                 >
                   <item.icon className="h-5 w-5 text-muted-foreground group-hover:text-sidebar-primary group-data-[active=true]:text-primary flex-shrink-0" />
                   <span className="group-data-[collapsible=icon]:hidden min-w-0 truncate">{item.label}</span>

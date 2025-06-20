@@ -19,11 +19,13 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/95 backdrop-blur-sm">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
-        <div className="flex items-center"> {/* Removed space-x-2 here if only logo */}
+        <div className="flex items-center space-x-2"> {/* Group logo and sidebar trigger */}
+          <SidebarTrigger className="md:hidden" /> {/* Mobile Sidebar Trigger - Left */}
           <Link href="/" className="flex items-center space-x-2">
             <Sparkles className="h-7 w-7 text-primary" />
             <span className="text-2xl font-bold font-headline tracking-tight">LearnLog</span>
           </Link>
+          <SidebarTrigger className="hidden md:flex" /> {/* Desktop Sidebar Trigger - Left */}
         </div>
         
         <div className="flex items-center space-x-2">
@@ -57,11 +59,9 @@ export function AppHeader() {
               </div>
             </PopoverContent>
           </Popover>
-          {/* Sidebar Triggers grouped on the right */}
-          <SidebarTrigger className="md:hidden" /> {/* Mobile Sidebar Trigger */}
-          <SidebarTrigger className="hidden md:flex" /> {/* Desktop Sidebar Trigger */}
         </div>
       </div>
     </header>
   );
 }
+
