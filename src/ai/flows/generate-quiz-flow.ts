@@ -55,7 +55,7 @@ The preferred question type is: {{{quizType}}}. If 'mixed', include a variety if
 - Include a brief 'explanation' for the correct answer if it clarifies a complex point or common misconception.
 
 Focus on important concepts from the notes. The questions should test understanding, not just recall of trivial facts.
-Provide a `quizTitle` related to the notes.
+Provide a \\\`quizTitle\\\` related to the notes.
 Ensure the output is an object containing an array of question objects and an optional quizTitle string.
 `,
 });
@@ -77,3 +77,4 @@ const internalGenerateQuizFlow = ai.defineFlow(
     return output;
   }
 );
+
