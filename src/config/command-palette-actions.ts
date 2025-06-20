@@ -1,5 +1,6 @@
+
 import type { LucideIcon } from 'lucide-react';
-import { Home, BookOpen, Lightbulb, Settings, FileText, ListChecks, Briefcase, MessageCircle } from 'lucide-react'; // Added ListChecks, Briefcase, MessageCircle
+import { Home, BookOpen, Lightbulb, Settings, FileText, ListChecks, Briefcase, MessageCircle, PlayCircle } from 'lucide-react'; // Added PlayCircle
 
 export interface CommandAction {
   id: string;
@@ -22,20 +23,20 @@ export const commandPaletteActions: CommandAction[] = [
     href: '/',
   },
   {
-    id: 'study-session',
-    name: 'Start/View Study Session', // Name updated for clarity
-    section: 'Navigation', // Changed section
-    icon: BookOpen,
-    keywords: ['study', 'session', 'focus', 'timer'],
-    href: '/study', 
+    id: 'study-session-launch', // ID updated
+    name: 'New Study Session', 
+    section: 'Navigation', 
+    icon: PlayCircle, // Updated Icon
+    keywords: ['study', 'session', 'focus', 'timer', 'new session', 'launch'],
+    href: '/study/launch', // Updated href
   },
   {
-    id: 'my-notes', // ID updated
-    name: 'My Notes', // Name updated
-    section: 'Navigation', // Changed section
+    id: 'my-notes', 
+    name: 'My Notes', 
+    section: 'Navigation', 
     icon: FileText,
     keywords: ['note', 'notes', 'documents', 'write', 'view'],
-    href: '/notes', // Assuming a /notes page
+    href: '/notes', 
   },
   {
     id: 'tasks',
@@ -43,7 +44,7 @@ export const commandPaletteActions: CommandAction[] = [
     section: 'Navigation',
     icon: ListChecks,
     keywords: ['todo', 'tasks', 'assignments', 'checklist'],
-    href: '/tasks', // Assuming a /tasks page
+    href: '/tasks', 
   },
   {
     id: 'resources',
@@ -51,17 +52,16 @@ export const commandPaletteActions: CommandAction[] = [
     section: 'Navigation',
     icon: Briefcase, 
     keywords: ['links', 'resources', 'materials', 'library'],
-    href: '/resources', // Assuming a /resources page
+    href: '/resources', 
   },
   {
-    id: 'ai-assistant-nav', // ID updated to avoid conflict
+    id: 'ai-assistant-nav', 
     name: 'AI Assistant',
     section: 'Navigation',
     icon: MessageCircle,
     keywords: ['ai', 'summary', 'summarize', 'assistant', 'chatbot', 'help'],
-    href: '/ai-assistant', // Assuming an /ai-assistant page or opens the bubble
+    href: '/ai-assistant', 
     perform: () => {
-        // This could open the AI assistant bubble if it's not a dedicated page
         const event = new CustomEvent('open-ai-assistant', { detail: { mode: 'chat' } });
         window.dispatchEvent(event);
       },
@@ -72,32 +72,36 @@ export const commandPaletteActions: CommandAction[] = [
     section: 'App',
     icon: Settings,
     keywords: ['preferences', 'settings', 'configure', 'options', 'profile'],
-    href: '/settings', // Assuming a /settings page
+    href: '/settings', 
     perform: () => {
       // If settings are a popover and not a page, trigger it.
       // const settingsButton = document.querySelector('button[aria-label="App settings"]') as HTMLElement;
       // settingsButton?.click();
     },
   },
-   // Example of a specific action if AI Summarizer is different from general AI Assistant
    {
     id: 'ai-summarize-action',
     name: 'Summarize Content (AI)',
-    section: 'AI Tools', // Kept as a separate tool for quick access
-    icon: Lightbulb, // Using Lightbulb as per original quick actions
+    section: 'AI Tools', 
+    icon: Lightbulb, 
     keywords: ['summarize', 'ai tool', 'quick summary'],
     perform: () => {
       const event = new CustomEvent('open-ai-assistant', { detail: { mode: 'summarize' } });
       window.dispatchEvent(event);
     },
   },
-  { // Example for "New Note" if it's a direct action and not just nav
+  { 
     id: 'create-new-note-action',
     name: 'Create New Note',
     section: 'Actions',
-    icon: FileText, // Or a 'PlusSquare' type icon
+    icon: FileText, 
     keywords: ['new note', 'add note', 'quick note'],
-    perform: () => console.log('Action: Create New Note (placeholder)'), // Implement actual logic
+    // Example: perform: () => router.push('/notes/new') or trigger command palette for new note creation UI
+    perform: () => {
+        const event = new CustomEvent('open-command-palette', { detail: { initialQuery: 'create new note' } });
+        window.dispatchEvent(event);
+    }
   },
 ];
 
+    

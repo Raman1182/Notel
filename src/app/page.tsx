@@ -7,11 +7,16 @@ import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget'
 import { AiAssistantBubble } from '@/components/ai-assistant/ai-assistant-bubble';
 import { WidgetCard } from '@/components/dashboard/widget-card';
 import Image from 'next/image';
-import { SettingsProvider } from '@/components/settings-provider';
+// SettingsProvider is now in RootLayout, so not needed here per page if AppHeader is used.
+// However, AppHeader itself uses useSettings, so pages rendering AppHeader need to be under SettingsProvider.
+// It's fine to keep SettingsProvider per page if needed, or ensure RootLayout covers all.
+// Given RootLayout has SettingsProvider, it should be fine. Let's remove it from individual page for cleaner structure if AppHeader is always part of page.
+// Actually, AppHeader is called within pages, so pages DO need to be wrapped by SettingsProvider, or AppHeader needs its own.
+// Easiest is to ensure RootLayout provides SettingsProvider.
 
 export default function DashboardPage() {
   return (
-    <SettingsProvider>
+    // <SettingsProvider> // Removed as RootLayout provides it
       <div className="flex flex-col min-h-screen">
         <AppHeader />
         <main className="flex-1 p-6 md:p-8 overflow-y-auto">
@@ -69,6 +74,8 @@ export default function DashboardPage() {
         </main>
         <AiAssistantBubble /> {/* This is separate from the command palette AI */}
       </div>
-    </SettingsProvider>
+    // </SettingsProvider> // Removed as RootLayout provides it
   );
 }
+
+    

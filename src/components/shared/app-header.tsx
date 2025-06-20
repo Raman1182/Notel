@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Cog, Menu, Minus, Plus, Sparkles, Home, BookOpen, FileText, ListChecks, Briefcase, MessageCircle, Target, Settings as SettingsIcon, Flame, Search } from 'lucide-react';
+import { Cog, Menu, Minus, Plus, Sparkles, Home, BookOpen, FileText, ListChecks, Briefcase, MessageCircle, Target, Settings as SettingsIcon, Flame, Search, PlayCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
@@ -18,7 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export function AppHeader() {
   const { fontSize, setFontSize, highContrast, setHighContrast } = useSettings();
@@ -33,7 +33,7 @@ export function AppHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/80 backdrop-blur-sm">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
         <div className="flex items-center space-x-3">
           <Link href="/" className="flex items-center space-x-2">
@@ -41,6 +41,16 @@ export function AppHeader() {
             <span className="text-2xl font-bold font-headline tracking-tight">LearnLog</span>
           </Link>
         </div>
+
+        <div className="hidden md:flex items-center space-x-1">
+          <Button variant="ghost" onClick={() => router.push('/')} className="text-foreground-opacity-70 hover:text-foreground">Dashboard</Button>
+          <Button variant="ghost" onClick={() => router.push('/study/launch')} className="text-foreground-opacity-70 hover:text-foreground">
+            <PlayCircle className="mr-2 h-4 w-4" /> New Session
+          </Button>
+          <Button variant="ghost" onClick={() => router.push('/notes')} className="text-foreground-opacity-70 hover:text-foreground">Notes</Button>
+          {/* Add other main nav items here if needed */}
+        </div>
+
 
         <div className="flex items-center space-x-2">
           <Button
@@ -115,8 +125,26 @@ export function AppHeader() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          
+          {/* Mobile Menu Trigger */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden h-10 w-10">
+                    <Menu className="h-5 w-5" />
+                    <span className="sr-only">Open menu</span>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56 bg-popover text-popover-foreground border-border shadow-xl" align="end" forceMount>
+                <DropdownMenuItem onClick={() => router.push('/')}><Home className="mr-2 h-4 w-4" />Dashboard</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/study/launch')}><PlayCircle className="mr-2 h-4 w-4" />New Session</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/notes')}><FileText className="mr-2 h-4 w-4" />Notes</DropdownMenuItem>
+                 {/* Add other nav items for mobile */}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>
   );
 }
+
+    

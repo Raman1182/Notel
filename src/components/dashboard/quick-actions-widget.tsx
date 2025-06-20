@@ -1,8 +1,9 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
 import { WidgetCard } from './widget-card';
-import { BookOpen, FilePlus2, Lightbulb } from 'lucide-react';
+import { BookOpen, FilePlus2, Lightbulb, PlayCircle } from 'lucide-react'; // Added PlayCircle
 import { useRouter } from 'next/navigation';
 
 export function QuickActionsWidget() {
@@ -13,10 +14,13 @@ export function QuickActionsWidget() {
     console.log("New Note Clicked");
     // Potentially use command palette action:
     // commandPaletteActions.find(a => a.id === 'new-note')?.perform?.();
+    // For now, could also route to a notes page or trigger command palette for new note
+    const event = new CustomEvent('open-command-palette', { detail: { initialQuery: 'create new note' } });
+    window.dispatchEvent(event);
   };
   
   const handleStudySession = () => {
-    router.push('/study');
+    router.push('/study/launch'); // Updated to launch page
   };
 
   const handleAISummary = () => {
@@ -33,8 +37,8 @@ export function QuickActionsWidget() {
           className="w-full h-20 flex flex-col items-center justify-center space-y-1 border-primary/30 hover:bg-primary/10 hover:text-primary-foreground group transition-all duration-200 ease-out hover:shadow-3d-lift hover:-translate-y-0.5"
           onClick={handleStudySession}
         >
-          <BookOpen className="h-6 w-6 text-primary group-hover:text-primary-foreground transition-colors" />
-          <span className="text-sm">Study Session</span>
+          <PlayCircle className="h-6 w-6 text-primary group-hover:text-primary-foreground transition-colors" /> {/* Updated Icon */}
+          <span className="text-sm">New Session</span>
         </Button>
         <Button 
           variant="outline" 
@@ -56,3 +60,5 @@ export function QuickActionsWidget() {
     </WidgetCard>
   );
 }
+
+    
