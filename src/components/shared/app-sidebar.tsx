@@ -31,18 +31,18 @@ import {
 } from 'lucide-react';
 
 const navItems = [
-  { href: '/', label: 'Home', icon: Home, shortcut: '⌘H' },
-  { href: '/study', label: 'Study Sessions', icon: BookOpen, shortcut: '⌘S' },
-  { href: '/notes', label: 'My Notes', icon: FileText, shortcut: '⌘N' },
-  { href: '/tasks', label: 'Tasks', icon: ListChecks, shortcut: '⌘T' },
-  { href: '/resources', label: 'Resources', icon: Briefcase, shortcut: '⌘R' }, // Using Briefcase for Resources
-  { href: '/ai-assistant', label: 'AI Assistant', icon: MessageCircle, shortcut: '⌘A' }, // Using MessageCircle for AI Assistant
+  { href: '/', label: 'Home', icon: Home },
+  { href: '/study', label: 'Study Sessions', icon: BookOpen },
+  { href: '/notes', label: 'My Notes', icon: FileText },
+  { href: '/tasks', label: 'Tasks', icon: ListChecks },
+  { href: '/resources', label: 'Resources', icon: Briefcase }, 
+  { href: '/ai-assistant', label: 'AI Assistant', icon: MessageCircle }, 
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { state: sidebarState } = useSidebar(); // Get sidebar state
+  const { state: sidebarState } = useSidebar(); 
 
   const handleStartSession = () => {
     router.push('/study');
@@ -80,7 +80,7 @@ export function AppSidebar() {
                   asChild
                   isActive={pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))}
                   tooltip={item.label}
-                  shortcut={item.shortcut}
+                  // shortcut prop removed
                   className="group-data-[collapsible=icon]:justify-center"
                 >
                   <a> {/* Content is now icon then label */}

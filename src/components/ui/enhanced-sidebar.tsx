@@ -1,3 +1,4 @@
+
 // This file is a copy of the provided src/components/ui/sidebar.tsx
 // with minor adjustments for theme and potentially new elements like SidebarTitle.
 // The original sidebar.tsx might be overwritten or used by other scaffolding logic,
@@ -456,7 +457,7 @@ const sidebarMenuButtonVariants = cva(
   {
     variants: {
       variant: {
-        default: "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-primary data-[active=true]:text-primary data-[active=true]:shadow-[inset_2px_0_0_0_hsl(var(--primary))] data-[active=true]:bg-transparent data-[active=true]:hover:bg-sidebar-accent",
+        default: "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-primary data-[active=true]:text-primary data-[active=true]:bg-transparent data-[active=true]:hover:bg-sidebar-accent",
         // outline might not be needed if all buttons follow the same style
       },
       size: { 
@@ -476,7 +477,7 @@ const SidebarMenuButton = React.forwardRef<
     asChild?: boolean
     isActive?: boolean
     tooltip?: string | React.ComponentProps<typeof TooltipContent>
-    shortcut?: string
+    shortcut?: string // Kept for potential future use, but won't be displayed by default
   } & VariantProps<typeof sidebarMenuButtonVariants>
 >(
   (
@@ -486,7 +487,7 @@ const SidebarMenuButton = React.forwardRef<
       variant = "default",
       size = "default",
       tooltip,
-      shortcut,
+      shortcut, // Kept in props but not rendered for now
       className,
       children, 
       ...props
@@ -499,11 +500,7 @@ const SidebarMenuButton = React.forwardRef<
     const buttonContent = (
       <>
         {children} {/* Icon and Text */}
-        {shortcut && state === "expanded" && !isMobile && (
-          <span className="ml-auto text-xs text-muted-foreground/70 group-hover:text-muted-foreground">
-            {shortcut}
-          </span>
-        )}
+        {/* Shortcut display logic removed based on user request */}
          {/* Tooltip content for collapsed state */}
         <span className="sr-only group-data-[collapsible=icon]:not-sr-only group-data-[collapsible=icon]:hidden">
           {typeof tooltip === 'string' ? tooltip : (children as any)?.props?.children || ''}
@@ -527,7 +524,7 @@ const SidebarMenuButton = React.forwardRef<
     )
 
 
-    if (!tooltip && !shortcut) { // Only show tooltip if actual tooltip content is provided
+    if (!tooltip) { 
       return button
     }
     
