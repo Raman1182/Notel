@@ -6,6 +6,7 @@
  * - generateFlashcardsFlow - A function that generates flashcards.
  * - GenerateFlashcardsInput - The input type for the function.
  * - GenerateFlashcardsOutput - The return type for the function.
+ * - Flashcard - The type for a single flashcard object.
  */
 
 import { ai } from '@/ai/genkit';
@@ -15,6 +16,7 @@ const FlashcardSchema = z.object({
   front: z.string().describe('The front side of the flashcard (e.g., a term, concept, or question).'),
   back: z.string().describe('The back side of the flashcard (e.g., a definition, explanation, or answer).'),
 });
+export type Flashcard = z.infer<typeof FlashcardSchema>; // Exporting the type
 
 const GenerateFlashcardsInputSchema = z.object({
   noteContent: z.string().min(20).describe('The content of the note from which to generate flashcards. Should be substantial enough for meaningful flashcards.'),
@@ -62,7 +64,9 @@ const internalGenerateFlashcardsFlow = ai.defineFlow(
     }
     const { output } = await prompt(input);
     if (!output || !output.flashcards) {
-      throw new Error("AI failed to generate flashcards.");
+      // Provide a more user-friendly fallback if AI fails to produce expected output structure
+      console.error("AI failed to generate flashcards or output was malformed:", output);
+      return { flashcards: [{front: "AI Error", back: "Could not generate flashcards at this time. The AI might be having trouble understanding the content or the request."}] };
     }
     return output;
   }

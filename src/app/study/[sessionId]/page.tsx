@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { SessionSidebar, type TreeNode, findNodeByIdRecursive } from '@/components/study/session-sidebar';
 import { FloatingTimerWidget } from '@/components/study/floating-timer-widget';
-import { Paperclip, StickyNote, Loader2, X, Brain, MessageSquare, Sparkles, FileText as FileTextIcon, AlertTriangle, Layers, History, HelpCircle, Link2 } from 'lucide-react'; // Added Link2
+import { Paperclip, StickyNote, Loader2, X, Brain, MessageSquare, Sparkles, FileText as FileTextIcon, AlertTriangle, Layers, History, HelpCircle, Link2 } from 'lucide-react';
 import type { SessionData, TimerMode } from '@/app/study/launch/page';
 import { processText, type ProcessTextInput } from '@/ai/flows/process-text-flow';
-import { generateFlashcardsFlow, type GenerateFlashcardsInput, type GenerateFlashcardsOutput } from '@/ai/flows/generate-flashcards-flow';
-import { generateQuizFlow, type GenerateQuizInput, type GenerateQuizOutput } from '@/ai/flows/generate-quiz-flow';
-import { findNoteConnectionsFlow, type FindNoteConnectionsInput, type FindNoteConnectionsOutput, type ConnectionSuggestion } from '@/ai/flows/find-note-connections-flow'; // Added
+import { generateFlashcardsFlow, type GenerateFlashcardsInput, type GenerateFlashcardsOutput, type Flashcard } from '@/ai/flows/generate-flashcards-flow';
+import { generateQuizFlow, type GenerateQuizInput, type GenerateQuizOutput, type QuizQuestion } from '@/ai/flows/generate-quiz-flow';
+import { findNoteConnectionsFlow, type FindNoteConnectionsInput, type FindNoteConnectionsOutput, type ConnectionSuggestion } from '@/ai/flows/find-note-connections-flow';
 
 
 import { useToast } from '@/hooks/use-toast';
@@ -26,9 +26,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"; // DialogFooter added
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import Link from 'next/link';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { FlashcardViewer } from '@/components/study/flashcard-viewer';
+import { QuizTaker } from '@/components/study/quiz-taker';
+import { Card, CardHeader as UiCardHeader, CardContent as UiCardContent, CardTitle as UiCardTitle } from '@/components/ui/card'; // Renamed to avoid conflict
 
 
 // Debounce utility
@@ -85,9 +88,9 @@ async function getHistoricalNoteSnippets(currentSessionId: string, maxSnippets =
         const extractSnippetsRecursive = (nodes: TreeNode[]) => {
           for (const node of nodes) {
             if (historicalNotes.length >= maxSnippets) return;
-            if (node.type === 'note' && notesContent[node.id] && notesContent[node.id].trim().length > 50) { // Only consider notes with some content
+            if (node.type === 'note' && notesContent[node.id] && notesContent[node.id].trim().length > 50) { 
               historicalNotes.push({
-                noteId: node.id, // Use node.id as it's unique to the note itself
+                noteId: `${sessionId}__${node.id}`, // Ensure unique ID across sessions for connections
                 subject: sessionData.subject,
                 title: node.name,
                 contentSnippet: notesContent[node.id].substring(0, snippetLength) + (notesContent[node.id].length > snippetLength ? '...' : ''),
@@ -131,12 +134,12 @@ function StudySessionPageContent() {
 
 
   const [isAiProcessing, setIsAiProcessing] = useState(false);
-  const [aiGeneratedContent, setAiGeneratedContent] = useState<string | null>(null);
-  const [aiGeneratedContentType, setAiGeneratedContentType] = useState<'flashcards' | 'quiz' | 'connections' | null>(null); // Added 'connections'
+  const [parsedAiContent, setParsedAiContent] = useState<any>(null); 
+  const [aiGeneratedContentType, setAiGeneratedContentType] = useState<'flashcards' | 'quiz' | 'connections' | null>(null);
   const [aiConnectionSuggestions, setAiConnectionSuggestions] = useState<ConnectionSuggestion[]>([]);
 
 
-  const [sessionTime, setSessionTime] = useState(0); // in seconds
+  const [sessionTime, setSessionTime] = useState(0); 
   const [isSessionRunning, setIsSessionRunning] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [notebookTitle, setNotebookTitle] = useState('');
@@ -145,8 +148,6 @@ function StudySessionPageContent() {
   const [timerMode, setTimerMode] = useState<TimerMode>('normal');
   const [pomodoroCycle, setPomodoroCycle] = useState<{ workMinutes: number; breakMinutes: number } | undefined>(undefined);
 
-
-  // Load session data, tree, notes, and PDF attachment info from localStorage
   useEffect(() => {
     if (!sessionId) {
         setError("Session ID is missing.");
@@ -279,7 +280,6 @@ function StudySessionPageContent() {
 
   const confirmEndSession = () => {
     setIsSessionRunning(false);
-    // Ensure current note content is part of the notesContent state before saving
     const finalNotesToSave = activeNoteId ? { ...notesContent, [activeNoteId]: currentNoteContent } : notesContent;
     localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(finalNotesToSave));
 
@@ -289,7 +289,7 @@ function StudySessionPageContent() {
     if (storedSessionDataJSON) {
         let parsedSessionData: SessionData = JSON.parse(storedSessionDataJSON);
         const actualDurationMinutes = Math.floor(sessionTime / 60); 
-        parsedSessionData = {...parsedSessionData, duration: actualDurationMinutes}; // Save actual duration
+        parsedSessionData = {...parsedSessionData, duration: actualDurationMinutes}; 
         localStorage.setItem(`learnlog-session-${sessionId}`, JSON.stringify(parsedSessionData));
     }
 
@@ -312,7 +312,6 @@ function StudySessionPageContent() {
       if (activeNoteId && activeNoteId !== nodeId && currentNoteContent !== (notesContent[activeNoteId] || '')) {
          setNotesContent(prev => {
             const updatedNotes = { ...prev, [activeNoteId as string]: currentNoteContent };
-            // Immediate save on note switch
             localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(updatedNotes)); 
             return updatedNotes;
         });
@@ -320,7 +319,6 @@ function StudySessionPageContent() {
       setActiveNoteId(nodeId);
       setCurrentNoteContent(notesContent[nodeId] || '');
     } else {
-      // If selecting a non-note item (like a title or subject), save current note first
       if (activeNoteId && currentNoteContent !== (notesContent[activeNoteId] || '')) {
          setNotesContent(prev => {
             const updatedNotes = { ...prev, [activeNoteId as string]: currentNoteContent };
@@ -329,7 +327,6 @@ function StudySessionPageContent() {
         });
       }
       setActiveNoteId(nodeId); 
-      // setCurrentNoteContent(''); // Optionally clear content area or show placeholder for non-notes
     }
   };
 
@@ -345,21 +342,19 @@ function StudySessionPageContent() {
       children: (type === 'note' || type === 'subject') ? [] : [], 
       parentId: parentId,
     };
-    if (type === 'subject') newNode.children = []; // Subjects don't have children array if they are root
+    if (type === 'subject') newNode.children = []; 
 
     if (type === 'note') {
       setNotesContent(prev => ({ ...prev, [newNode.id]: '' }));
     }
     
     const updateTreeRecursively = (nodes: TreeNode[], pId: string | null): TreeNode[] => {
-      if (pId === null ) { // Adding to the very root (should not happen if tree always starts with a subject)
-        // This case implies adding a new subject, typically not done this way in session.
-        // Assuming root is always treeData[0] and is the subject.
-        if (nodes.length > 0 && nodes[0].id === 'root' && nodes[0].type === 'subject') { // Should be `treeData[0].id`
+      if (pId === null ) { 
+        if (nodes.length > 0 && nodes[0].id === 'root' && nodes[0].type === 'subject') { 
             const rootNode = nodes[0];
             return [{ ...rootNode, children: [...(rootNode.children || []), newNode] }];
         }
-        return [...nodes, newNode]; // Fallback, should ideally not be reached
+        return [...nodes, newNode]; 
       }
       return nodes.map(node => {
         if (node.id === pId) {
@@ -371,7 +366,7 @@ function StudySessionPageContent() {
         return node;
       });
     };
-    setTreeData(prevTree => updateTreeRecursively(prevTree, parentId || 'root')); // parentId should usually be 'root' if adding to subject
+    setTreeData(prevTree => updateTreeRecursively(prevTree, parentId || 'root')); 
   };
   
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -413,16 +408,23 @@ function StudySessionPageContent() {
       return;
     }
     setIsAiProcessing(true);
-    setAiGeneratedContent(null);
+    setParsedAiContent(null);
     setAiConnectionSuggestions([]);
     try {
-      const input: GenerateFlashcardsInput = { noteContent: currentNoteContent, subject: notebookTitle };
-      const result = await generateFlashcardsFlow(input);
-      setAiGeneratedContent(JSON.stringify(result.flashcards, null, 2));
-      setAiGeneratedContentType('flashcards');
-      toast({ title: "Flashcards Generated", description: "AI has created flashcards from your note." });
+      const input: GenerateFlashcardsInput = { noteContent: currentNoteContent, subject: notebookTitle, numFlashcards: 10 };
+      const result: GenerateFlashcardsOutput = await generateFlashcardsFlow(input);
+      if (result.flashcards && result.flashcards.length > 0) {
+        setParsedAiContent(result.flashcards);
+        setAiGeneratedContentType('flashcards');
+        toast({ title: "Flashcards Generated", description: "AI has created flashcards from your note." });
+      } else {
+         setParsedAiContent([]); // Set to empty array to indicate no flashcards generated
+         setAiGeneratedContentType('flashcards'); // Still show viewer with "No flashcards" message
+         toast({ title: "No Flashcards", description: "The AI couldn't generate flashcards from this content.", variant: "default" });
+      }
     } catch (error) {
       toast({ title: "Flashcard Generation Error", description: error instanceof Error ? error.message : "Could not generate flashcards.", variant: "destructive"});
+      setParsedAiContent(null);
     } finally {
       setIsAiProcessing(false);
     }
@@ -434,16 +436,23 @@ function StudySessionPageContent() {
       return;
     }
     setIsAiProcessing(true);
-    setAiGeneratedContent(null);
+    setParsedAiContent(null);
     setAiConnectionSuggestions([]);
     try {
-      const input: GenerateQuizInput = { noteContent: currentNoteContent, subject: notebookTitle, numQuestions: 5 };
-      const result = await generateQuizFlow(input);
-      setAiGeneratedContent(JSON.stringify(result.questions, null, 2));
-      setAiGeneratedContentType('quiz');
-      toast({ title: "Quiz Generated", description: "AI has created a quiz from your note." });
+      const input: GenerateQuizInput = { noteContent: currentNoteContent, subject: notebookTitle, numQuestions: 5, quizType: 'mixed' };
+      const result: GenerateQuizOutput = await generateQuizFlow(input);
+      if (result.questions && result.questions.length > 0) {
+        setParsedAiContent({ questions: result.questions, title: result.quizTitle || `${notebookTitle} Quiz` });
+        setAiGeneratedContentType('quiz');
+        toast({ title: "Quiz Generated", description: "AI has created a quiz from your note." });
+      } else {
+        setParsedAiContent({ questions: [], title: "No Quiz" });
+        setAiGeneratedContentType('quiz');
+        toast({ title: "No Quiz Questions", description: "The AI couldn't generate a quiz from this content.", variant: "default" });
+      }
     } catch (error) {
       toast({ title: "Quiz Generation Error", description: error instanceof Error ? error.message : "Could not generate quiz.", variant: "destructive"});
+      setParsedAiContent(null);
     } finally {
       setIsAiProcessing(false);
     }
@@ -455,13 +464,15 @@ function StudySessionPageContent() {
       return;
     }
     setIsAiProcessing(true);
-    setAiGeneratedContent(null);
+    setParsedAiContent(null);
     setAiConnectionSuggestions([]);
     try {
       const historicalNotes = await getHistoricalNoteSnippets(sessionId);
       if (historicalNotes.length === 0) {
         toast({title: "No Historical Notes", description: "Not enough historical note data to find connections.", variant: "default"});
         setIsAiProcessing(false);
+        setAiGeneratedContentType('connections'); // To show a message in dialog
+        setAiConnectionSuggestions([]);
         return;
       }
       const input: FindNoteConnectionsInput = {
@@ -476,6 +487,7 @@ function StudySessionPageContent() {
       toast({ title: "Connections Analyzed", description: result.suggestions.length > 0 ? `Found ${result.suggestions.length} potential connection(s).` : "No strong connections found this time."});
     } catch (error) {
       toast({ title: "Connection Analysis Error", description: error instanceof Error ? error.message : "Could not analyze connections.", variant: "destructive"});
+      setAiGeneratedContentType(null);
     } finally {
       setIsAiProcessing(false);
     }
@@ -603,50 +615,74 @@ function StudySessionPageContent() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={!!aiGeneratedContentType && (!!aiGeneratedContent || aiConnectionSuggestions.length > 0)} onOpenChange={(open) => { if (!open) { setAiGeneratedContent(null); setAiGeneratedContentType(null); setAiConnectionSuggestions([]); }}}>
-        <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {aiGeneratedContentType === 'flashcards' && 'AI Generated Flashcards'}
-              {aiGeneratedContentType === 'quiz' && 'AI Generated Quiz'}
-              {aiGeneratedContentType === 'connections' && 'AI Suggested Connections'}
-            </DialogTitle>
-            <DialogDescription>
-              {aiGeneratedContentType === 'connections' 
-                ? (aiConnectionSuggestions.length > 0 ? "Here are some potential connections to your other notes:" : "No strong connections found this time.")
-                : "Here's what the AI generated. You can copy this content."}
-            </DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="max-h-[60vh] mt-4 p-1 custom-scrollbar">
-            {aiGeneratedContentType === 'connections' ? (
-              <div className="space-y-4">
-                {aiConnectionSuggestions.map((suggestion, index) => (
-                  <Card key={index} className="bg-muted/50 p-4">
-                    <CardHeader className="p-0 pb-2">
-                      <CardTitle className="text-base">
-                        <Link href={`/notes/${suggestion.connectedNoteId}/viewer?subject=${encodeURIComponent(suggestion.connectedNoteSubject || 'Note')}`} 
-                              target="_blank" rel="noopener noreferrer" 
-                              className="text-primary hover:underline flex items-center">
-                          <FileTextIcon className="h-4 w-4 mr-2 shrink-0"/> {suggestion.connectedNoteTitle}
-                        </Link>
-                      </CardTitle>
-                      {suggestion.connectedNoteSubject && <p className="text-xs text-muted-foreground">Subject: {suggestion.connectedNoteSubject}</p>}
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      <p className="text-sm font-semibold mt-1">Concept: <span className="font-normal">{suggestion.connectingConcept}</span></p>
-                      <p className="text-sm mt-1"><span className="font-semibold">Explanation:</span> {suggestion.explanation}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <pre className="text-xs bg-muted p-3 rounded-md whitespace-pre-wrap break-words">
-                <code>{aiGeneratedContent}</code>
-              </pre>
+      <Dialog 
+        open={!!aiGeneratedContentType && (!!parsedAiContent || aiConnectionSuggestions.length > 0 || (aiGeneratedContentType === 'connections' && aiConnectionSuggestions.length === 0))} 
+        onOpenChange={(open) => { 
+          if (!open) { 
+            setParsedAiContent(null); 
+            setAiGeneratedContentType(null); 
+            setAiConnectionSuggestions([]); 
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl min-h-[70vh] flex flex-col p-0">
+           <DialogHeader className="p-4 border-b border-border/20">
+             <DialogTitle className="text-xl">
+               {aiGeneratedContentType === 'flashcards' && 'AI Generated Flashcards'}
+               {aiGeneratedContentType === 'quiz' && (parsedAiContent?.title || 'AI Generated Quiz')}
+               {aiGeneratedContentType === 'connections' && 'AI Suggested Connections'}
+               {(!aiGeneratedContentType && parsedAiContent) && 'AI Result'}
+             </DialogTitle>
+             {aiGeneratedContentType === 'quiz' && <DialogDescription>Test your knowledge based on the current note.</DialogDescription>}
+             {aiGeneratedContentType === 'flashcards' && <DialogDescription>Review key concepts from your note.</DialogDescription>}
+             {aiGeneratedContentType === 'connections' && <DialogDescription>Discover links to your other study materials.</DialogDescription>}
+           </DialogHeader>
+           
+           <div className="flex-grow overflow-y-auto custom-scrollbar">
+             {aiGeneratedContentType === 'flashcards' && Array.isArray(parsedAiContent) && (
+               <div className="p-2 md:p-4">
+                 <FlashcardViewer flashcards={parsedAiContent as Flashcard[]} />
+               </div>
+             )}
+             {aiGeneratedContentType === 'quiz' && parsedAiContent?.questions && (
+                <QuizTaker questions={parsedAiContent.questions as QuizQuestion[]} quizTitle={parsedAiContent.title} />
+             )}
+             {aiGeneratedContentType === 'connections' && (
+               <div className="p-4 space-y-4">
+                 {aiConnectionSuggestions.length > 0 ? aiConnectionSuggestions.map((suggestion, index) => {
+                    const [connectionSessionId, connectionNoteIdPart] = suggestion.connectedNoteId.split('__');
+                    const targetHref = connectionNoteIdPart 
+                        ? `/notes/${connectionSessionId}/viewer?subject=${encodeURIComponent(suggestion.connectedNoteSubject || 'Note')}&note=${connectionNoteIdPart}` 
+                        : `/notes/${connectionSessionId}/viewer?subject=${encodeURIComponent(suggestion.connectedNoteSubject || 'Note')}`;
+                    return (
+                        <UiCard key={index} className="bg-muted/30 p-4 border-l-4 border-primary/70">
+                          <UiCardHeader className="p-0 pb-2">
+                            <UiCardTitle className="text-base md:text-lg">
+                              <Link href={targetHref} 
+                                    target="_blank" rel="noopener noreferrer" 
+                                    className="text-primary hover:underline flex items-center">
+                                <FileTextIcon className="h-4 w-4 mr-2 shrink-0"/> {suggestion.connectedNoteTitle}
+                              </Link>
+                            </UiCardTitle>
+                            {suggestion.connectedNoteSubject && <p className="text-xs text-muted-foreground mt-1">Subject: {suggestion.connectedNoteSubject}</p>}
+                          </UiCardHeader>
+                          <UiCardContent className="p-0">
+                            <p className="text-sm font-semibold mt-1">Concept: <span className="font-normal">{suggestion.connectingConcept}</span></p>
+                            <p className="text-sm mt-1"><span className="font-semibold">Explanation:</span> {suggestion.explanation}</p>
+                          </UiCardContent>
+                        </UiCard>
+                    );
+                 }) : <p className="text-muted-foreground text-center py-10">No strong connections found this time.</p>}
+               </div>
+             )}
+            {/* Fallback for unexpected content or loading state (though loading should be handled by isAiProcessing) */}
+            {!parsedAiContent && aiGeneratedContentType !== 'connections' && (
+                <div className="p-6 text-center text-muted-foreground">Preparing content...</div>
             )}
-          </ScrollArea>
-           <DialogFooter className="mt-4">
-            <Button onClick={() => { setAiGeneratedContent(null); setAiGeneratedContentType(null); setAiConnectionSuggestions([]); }}>Close</Button>
+           </div>
+           
+           <DialogFooter className="p-3 border-t border-border/20 mt-0">
+             <Button variant="outline" onClick={() => { setParsedAiContent(null); setAiGeneratedContentType(null); setAiConnectionSuggestions([]); }}>Close</Button>
            </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -656,7 +692,7 @@ function StudySessionPageContent() {
           sessionSubject={notebookTitle} 
           treeData={treeData}
           onSelectNode={handleNoteSelect}
-          activeNodeId={activeNodeId}
+          activeNodeId={activeNoteId}
           onAddNode={addNodeToTree}
         />
 
@@ -692,7 +728,7 @@ function StudySessionPageContent() {
               />
               {isEditorActive && (
                 <div 
-                    className="flex items-center justify-end space-x-1 p-2 border-t border-white/10 rounded-b-md"
+                    className="flex items-center justify-end space-x-1 p-2 border-t border-white/10 rounded-b-md bg-[#0F0F0F]"
                 >
                   <Button size="sm" variant="ghost" className="text-xs p-1.5 px-2 disabled:opacity-50 bg-primary/10 hover:bg-primary/20 text-primary" onClick={() => handleAiAction('explain')} disabled={isAiProcessing || !currentNoteContent.trim()}>
                     {isAiProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Brain className="h-3 w-3 mr-1" />} Explain
@@ -797,6 +833,3 @@ export default function StudySessionPage() {
     </Suspense>
   );
 }
-
-// Import Card components to be used in the connections dialog
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

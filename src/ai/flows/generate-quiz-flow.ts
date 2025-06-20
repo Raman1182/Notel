@@ -6,6 +6,7 @@
  * - generateQuizFlow - A function that generates quiz questions.
  * - GenerateQuizInput - The input type for the function.
  * - GenerateQuizOutput - The return type for the function.
+ * - QuizQuestion - The type for a single quiz question object.
  */
 
 import { ai } from '@/ai/genkit';
@@ -18,6 +19,7 @@ const QuizQuestionSchema = z.object({
   type: z.enum(['multiple-choice', 'open-ended']).describe('The type of question.'),
   explanation: z.string().optional().describe('A brief explanation for the correct answer, especially for tricky questions.'),
 });
+export type QuizQuestion = z.infer<typeof QuizQuestionSchema>; // Exporting the type
 
 const GenerateQuizInputSchema = z.object({
   noteContent: z.string().min(50).describe('The content of the note from which to generate a quiz. Should be substantial enough for meaningful questions.'),
@@ -72,7 +74,9 @@ const internalGenerateQuizFlow = ai.defineFlow(
     }
     const { output } = await prompt(input);
     if (!output || !output.questions) {
-      throw new Error("AI failed to generate quiz questions.");
+      // Provide a more user-friendly fallback
+      console.error("AI failed to generate quiz questions or output was malformed:", output);
+      return { questions: [{question: "AI Error", correctAnswer: "-", type: 'open-ended', explanation: "Could not generate quiz at this time. The AI might be having trouble."}], quizTitle: "AI Error" };
     }
     return output;
   }
