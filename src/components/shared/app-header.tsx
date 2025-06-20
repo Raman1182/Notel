@@ -101,46 +101,10 @@ export function AppHeader() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="flex items-center cursor-pointer">
-                  <Flame className="mr-2 h-4 w-4 text-warning" />
-                  Study Streak: (Coming Soon)
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <Popover>
-                  <PopoverTrigger asChild>
-                      <div className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
-                          <Cog className="mr-2 h-4 w-4" /> App Display
-                      </div>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-72 p-4 space-y-4 bg-popover text-popover-foreground rounded-xl shadow-xl border-border ml-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="font-size" className="text-sm font-medium">Font Size</Label>
-                      <div className="flex items-center space-x-2">
-                        <Button variant="outline" size="icon" onClick={decreaseFontSize} aria-label="Decrease font size">
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <span className="w-10 text-center text-sm tabular-nums">{fontSize}px</span>
-                        <Button variant="outline" size="icon" onClick={increaseFontSize} aria-label="Increase font size">
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between space-x-2">
-                      <Label htmlFor="high-contrast" className="text-sm font-medium">High Contrast</Label>
-                      <Switch
-                        id="high-contrast"
-                        checked={highContrast}
-                        onCheckedChange={setHighContrast}
-                        aria-label="Toggle high contrast mode"
-                      />
-                    </div>
-                  </PopoverContent>
-                </Popover>
                 <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href="/settings" className="w-full flex items-center">
-                    <SettingsIcon className="mr-2 h-4 w-4" />
-                    More Settings
-                  </Link>
+                    <Link href="/settings" className="w-full flex items-center">
+                        <Cog className="mr-2 h-4 w-4" /> App Settings
+                    </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive hover:!bg-destructive/20 focus:!bg-destructive/20">

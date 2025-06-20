@@ -10,6 +10,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendEmailVerification,
+  updateProfile,
   type User,
   type AuthError
 } from 'firebase/auth';
@@ -19,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 interface EmailPasswordCredentials {
   email: string;
   password: string;
+  displayName?: string;
 }
 
 interface AuthContextProps {
@@ -48,18 +50,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleAuthError = (error: AuthError): string => {
     switch (error.code) {
       case 'auth/email-already-in-use':
-        return 'This email is already in use. Please try signing in.';
+        return 'This email is already registered. Please try logging in.';
       case 'auth/invalid-email':
         return 'Please enter a valid email address.';
       case 'auth/weak-password':
-        return 'The password is too weak. Please use at least 6 characters.';
-      case 'auth/wrong-password':
+        return 'Password is too weak. Please use at least 6 characters.';
       case 'auth/user-not-found':
+      case 'auth/wrong-password':
       case 'auth/invalid-credential':
         return 'Invalid email or password. Please try again.';
       default:
         console.error("Authentication error:", error);
-        return 'An unexpected error occurred. Please try again.';
+        return 'An unexpected error occurred. Please try again later.';
     }
   };
 
@@ -81,7 +83,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, credentials.email, credentials.password);
-      // Send verification email
+      
+      const displayName = credentials.email.split('@')[0];
+      await updateProfile(userCredential.user, { displayName: displayName });
+
       await sendEmailVerification(userCredential.user);
       toast({
         title: "Verification Email Sent",

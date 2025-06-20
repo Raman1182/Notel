@@ -2,18 +2,30 @@
 'use client';
 
 import type { NextPage } from 'next';
-import { useEffect, useState, useMemo, Suspense } from 'react';
+import { useEffect, useState, useMemo, Suspense, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/shared/app-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, CalendarDays, Search, FileText as FileTextIcon, Loader2, Inbox } from 'lucide-react';
+import { ArrowRight, CalendarDays, Search, FileText as FileTextIcon, Loader2, Inbox, Trash2 } from 'lucide-react';
 import type { SessionData } from '@/app/study/launch/page';
 import type { TreeNode } from '@/components/study/session-sidebar';
+import { getSessionsBySubject, deleteSession, type SessionDocumentWithId } from '@/services/session-service';
+import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-interface EnrichedSessionDataForSubject extends SessionData {
-  notesCount: number;
+interface EnrichedSessionDataForSubject extends SessionDocumentWithId {
   noteTitlesSummary: string;
 }
 
@@ -45,17 +57,16 @@ function getNoteTitlesSummary(tree: TreeNode[], notesContent: Record<string, str
             }
         }
     }
-    if (tree.length > 0 && tree[0].children) {
+    if (tree && tree.length > 0 && tree[0].children) {
         findTitles(tree[0].children);
     }
-    if (titles.length === 0 && tree.length > 0 && tree[0].name && !seenTitles.has(tree[0].name.toLowerCase())) { 
+    if (titles.length === 0 && tree && tree.length > 0 && tree[0].name && !seenTitles.has(tree[0].name.toLowerCase())) { 
       if (tree[0].children && tree[0].children.length > 0 && tree[0].children[0].type === 'note' && notesContent[tree[0].children[0].id]?.trim()) {
         titles.push(tree[0].children[0].name); 
       } else if (Object.keys(notesContent).length > 0) {
          titles.push("General Notes");
       }
     }
-
 
     return titles.length > 0 ? titles.join(', ') : 'No specific topics identified';
 }
@@ -64,6 +75,8 @@ function getNoteTitlesSummary(tree: TreeNode[], notesContent: Record<string, str
 function SessionsForSubjectContent() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
+  const { toast } = useToast();
   
   const subjectPath = params.subjectPath as string;
   const subjectName = useMemo(() => {
@@ -74,52 +87,54 @@ function SessionsForSubjectContent() {
     }
   }, [subjectPath]);
 
-
   const [sessionsForSubject, setSessionsForSubject] = useState<EnrichedSessionDataForSubject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchSessions = useCallback(async (userId: string) => {
     if (!subjectName || subjectName === 'Error Decoding Subject') {
         setIsLoading(false);
         return;
     }
-
     setIsLoading(true);
     try {
-      const sessionsIndexJSON = localStorage.getItem('learnlog-sessions-index');
-      if (!sessionsIndexJSON) {
-        setSessionsForSubject([]);
-        setIsLoading(false);
-        return;
-      }
-      const sessionIds: string[] = JSON.parse(sessionsIndexJSON);
-      const allSessionsData: EnrichedSessionDataForSubject[] = sessionIds.map(id => {
-        const sessionJSON = localStorage.getItem(`learnlog-session-${id}`);
-        if (!sessionJSON) return null;
-        const session: SessionData = JSON.parse(sessionJSON);
-
-        if (session.subject !== subjectName) return null;
-
-        const notesContentJSON = localStorage.getItem(`learnlog-session-${id}-notesContent`);
-        const notesContent: Record<string, string> = notesContentJSON ? JSON.parse(notesContentJSON) : {};
-        const notesCount = Object.keys(notesContent).length;
-
-        const treeJSON = localStorage.getItem(`learnlog-session-${id}-tree`);
-        const tree: TreeNode[] = treeJSON ? JSON.parse(treeJSON) : [];
-        const noteTitlesSummary = getNoteTitlesSummary(tree, notesContent);
-        
-        return { ...session, notesCount, noteTitlesSummary };
-      }).filter(session => session !== null) as EnrichedSessionDataForSubject[];
-      
-      allSessionsData.sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
-      setSessionsForSubject(allSessionsData);
-
+      const fetchedSessions = await getSessionsBySubject(userId, subjectName);
+      const enrichedSessions: EnrichedSessionDataForSubject[] = fetchedSessions.map(session => ({
+        ...session,
+        noteTitlesSummary: getNoteTitlesSummary(session.treeData || [], session.notesContent || {}),
+      }));
+      enrichedSessions.sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
+      setSessionsForSubject(enrichedSessions);
     } catch (error) {
       console.error(`Error loading sessions for subject ${subjectName}:`, error);
+      toast({ title: "Error", description: "Could not load your sessions.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
-  }, [subjectName]);
+  }, [subjectName, toast]);
+
+  useEffect(() => {
+    if (user) {
+      fetchSessions(user.uid);
+    } else {
+      setIsLoading(false);
+      setSessionsForSubject([]);
+    }
+  }, [user, fetchSessions]);
+
+  const handleDeleteSession = async () => {
+    if (!sessionToDelete) return;
+    try {
+      await deleteSession(sessionToDelete);
+      setSessionsForSubject(prev => prev.filter(s => s.id !== sessionToDelete));
+      toast({ title: "Session Deleted", description: "The study session has been permanently removed." });
+    } catch (error) {
+      console.error("Error deleting session:", error);
+      toast({ title: "Error", description: "Could not delete the session.", variant: "destructive" });
+    } finally {
+      setSessionToDelete(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -148,39 +163,70 @@ function SessionsForSubjectContent() {
   return (
     <>
       {sessionsForSubject.map((session) => (
-        <Link key={session.sessionId} href={`/notes/${session.sessionId}/viewer?subject=${encodeURIComponent(subjectName)}`} passHref>
-          <Card className="bg-card border-border shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 ease-out cursor-pointer mb-6">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between text-sm text-muted-foreground mb-1">
-                <div className="flex items-center">
-                  <CalendarDays className="h-4 w-4 mr-2 text-primary/80" />
-                  <span>
-                    {session.startTime ? new Date(session.startTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
-                  </span>
+          <Card key={session.id} className="bg-card border-border shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 ease-out mb-6 relative group">
+            <Link href={`/notes/${session.id}/viewer?subject=${encodeURIComponent(subjectName)}`} passHref>
+              <div className="cursor-pointer">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground mb-1">
+                    <div className="flex items-center">
+                      <CalendarDays className="h-4 w-4 mr-2 text-primary/80" />
+                      <span>
+                        {session.startTime ? new Date(session.startTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
+                      </span>
+                    </div>
+                    <span>{formatSessionDuration(session.duration)} planned</span>
+                  </div>
+                  <CardTitle className="text-xl font-semibold leading-tight truncate flex items-center" title={session.subject}>
+                    <FileTextIcon className="h-5 w-5 mr-2 text-primary shrink-0" /> 
+                    Session Notes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    <span className="font-medium text-foreground/80">Topics:</span> {session.noteTitlesSummary || "General notes for this session."}
+                  </p>
+                  <div className="text-xs text-muted-foreground">
+                    {(session.notesContent ? Object.keys(session.notesContent).length : 0)} note(s)
+                  </div>
+                </CardContent>
+                <div className="p-4 pt-3 border-t border-border/10 flex justify-end">
+                    <Button variant="ghost" size="sm" className="text-primary hover:text-primary hover:bg-primary/10">
+                        View Session Notes <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
                 </div>
-                <span>{formatSessionDuration(session.duration)} planned</span>
               </div>
-              <CardTitle className="text-xl font-semibold leading-tight truncate flex items-center" title={session.subject}>
-                 <FileTextIcon className="h-5 w-5 mr-2 text-primary shrink-0" /> 
-                 Session Notes
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                <span className="font-medium text-foreground/80">Topics:</span> {session.noteTitlesSummary || "General notes for this session."}
-              </p>
-              <div className="text-xs text-muted-foreground">
-                {session.notesCount} note{session.notesCount === 1 ? '' : 's'}
-              </div>
-            </CardContent>
-            <div className="p-4 pt-3 border-t border-border/10 flex justify-end">
-                 <Button variant="ghost" size="sm" className="text-primary hover:text-primary hover:bg-primary/10">
-                    View Session Notes <ArrowRight className="ml-2 h-4 w-4" />
-                 </Button>
-            </div>
+            </Link>
+            <Button 
+              variant="destructive" 
+              size="icon" 
+              className="absolute top-3 right-3 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSessionToDelete(session.id);
+              }}
+              aria-label="Delete session"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </Card>
-        </Link>
       ))}
+
+      <AlertDialog open={!!sessionToDelete} onOpenChange={(open) => !open && setSessionToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the study session and all of its notes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setSessionToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteSession} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -233,4 +279,3 @@ const NotesSessionsForSubjectPage: NextPage = () => {
 };
 
 export default NotesSessionsForSubjectPage;
-

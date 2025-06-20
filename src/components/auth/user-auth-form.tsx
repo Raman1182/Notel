@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -11,7 +12,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, AlertCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
 
 const authSchema = z.object({
@@ -23,7 +23,7 @@ type FormData = z.infer<typeof authSchema>;
 
 export function UserAuthForm() {
   const [isLogin, setIsLogin] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState<null | 'email' | 'google'>(null);
   const [error, setError] = useState<string | null>(null);
   
   const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
@@ -35,39 +35,50 @@ export function UserAuthForm() {
   });
 
   const onSubmit = async (data: FormData) => {
-    setIsLoading(true);
+    setIsLoading('email');
     setError(null);
     let result;
-    if (isLogin) {
-      result = await signInWithEmail(data);
-    } else {
-      result = await signUpWithEmail(data);
-    }
-    setIsLoading(false);
-
-    if (typeof result === 'string') {
-      setError(result);
-    } else {
-      router.push('/');
-      toast({
-        title: isLogin ? "Login Successful" : "Account Created",
-        description: isLogin ? "Welcome back!" : "Please check your email to verify your account.",
-      });
+    try {
+      if (isLogin) {
+        result = await signInWithEmail(data);
+      } else {
+        result = await signUpWithEmail(data);
+      }
+      
+      if (typeof result === 'string') {
+        setError(result);
+      } else {
+        router.push('/');
+        toast({
+          title: isLogin ? "Login Successful" : "Account Created",
+          description: isLogin ? "Welcome back!" : "Please check your email to verify your account.",
+        });
+      }
+    } catch (e: any) {
+        setError(e.message || "An unexpected error occurred.");
+    } finally {
+        setIsLoading(null);
     }
   };
 
   const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    const user = await signInWithGoogle();
-    setIsLoading(false);
-    if (user) {
-        router.push('/');
-        toast({
-            title: "Sign In Successful",
-            description: "Welcome!",
-        });
-    } else {
-        setError("Google Sign-In failed. Please try again.");
+    setIsLoading('google');
+    setError(null);
+    try {
+      const user = await signInWithGoogle();
+      if (user) {
+          router.push('/');
+          toast({
+              title: "Sign In Successful",
+              description: "Welcome!",
+          });
+      } else {
+          setError("Google Sign-In failed. Please try again.");
+      }
+    } catch (e: any) {
+        setError(e.message || "An unexpected error occurred with Google Sign-In.");
+    } finally {
+        setIsLoading(null);
     }
   }
 
@@ -84,7 +95,7 @@ export function UserAuthForm() {
               autoCapitalize="none"
               autoComplete="email"
               autoCorrect="off"
-              disabled={isLoading}
+              disabled={!!isLoading}
               {...register('email')}
             />
             {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
@@ -94,7 +105,7 @@ export function UserAuthForm() {
             <Input
               id="password"
               type="password"
-              disabled={isLoading}
+              disabled={!!isLoading}
               {...register('password')}
             />
             {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
@@ -105,8 +116,8 @@ export function UserAuthForm() {
               {error}
             </div>
           )}
-          <Button disabled={isLoading} className="w-full">
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button disabled={!!isLoading} className="w-full">
+            {isLoading === 'email' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isLogin ? 'Sign In' : 'Create Account'}
           </Button>
         </div>
@@ -121,11 +132,10 @@ export function UserAuthForm() {
           </span>
         </div>
       </div>
-      <Button variant="outline" type="button" disabled={isLoading} onClick={handleGoogleSignIn}>
-        {isLoading ? (
+      <Button variant="outline" type="button" disabled={!!isLoading} onClick={handleGoogleSignIn}>
+        {isLoading === 'google' ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
-          // A simple SVG for Google icon as lucide-react doesn't have one
           <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
             <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 126 21.5 173.5 56.5l-68.2 68.2C314.5 98.2 282.7 80 248 80c-81.6 0-148.2 66.6-148.2 148.2s66.6 148.2 148.2 148.2c87.7 0 129.2-61.2 134-94.2H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
           </svg>

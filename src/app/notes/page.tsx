@@ -2,19 +2,15 @@
 'use client';
 
 import type { NextPage } from 'next';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { AppHeader } from '@/components/shared/app-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookOpen, CalendarDays, Inbox, Search, Clock, FileText } from 'lucide-react';
+import { ArrowRight, BookOpen, Clock, FileText, Inbox, Search } from 'lucide-react';
 import type { SessionData } from '@/app/study/launch/page';
-import type { TreeNode } from '@/components/study/session-sidebar';
-
-interface EnrichedSessionData extends SessionData {
-  notesCount: number;
-  actualDuration: number; // in seconds
-}
+import { getSessions, type SessionDocumentWithId } from '@/services/session-service';
+import { useAuth } from '@/contexts/auth-context';
 
 interface SubjectAggregate {
   name: string;
@@ -46,39 +42,25 @@ function timeAgo(timestamp: number): string {
   if (hours === 1) return '1 hour ago';
   if (hours < 24) return `${hours} hours ago`;
   if (days === 1) return 'Yesterday';
-  // For dates more than a day ago, show "Month Day" e.g. "Nov 28"
   const date = new Date(timestamp);
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-
 const NotesSubjectListingPage: NextPage = () => {
+  const { user, loading: authLoading } = useAuth();
   const [subjectAggregates, setSubjectAggregates] = useState<SubjectAggregate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchAndAggregateSessions = useCallback(async (userId: string) => {
     setIsLoading(true);
     try {
-      const sessionsIndexJSON = localStorage.getItem('learnlog-sessions-index');
-      if (!sessionsIndexJSON) {
-        setSubjectAggregates([]);
-        setIsLoading(false);
-        return;
-      }
-      
-      const sessionIds: string[] = JSON.parse(sessionsIndexJSON);
-      const allSessionData: SessionData[] = sessionIds.map(id => {
-        const sessionJSON = localStorage.getItem(`learnlog-session-${id}`);
-        return sessionJSON ? JSON.parse(sessionJSON) : null;
-      }).filter(session => session !== null) as SessionData[];
-
+      const allSessionData = await getSessions(userId);
       const aggregates: Record<string, SubjectAggregate> = {};
 
       allSessionData.forEach(session => {
         if (!session.subject) return;
 
-        const notesContentJSON = localStorage.getItem(`learnlog-session-${session.sessionId}-notesContent`);
-        const notesCount = notesContentJSON ? Object.keys(JSON.parse(notesContentJSON)).length : 0;
+        const notesCount = session.notesContent ? Object.keys(session.notesContent).length : 0;
         
         if (!aggregates[session.subject]) {
           aggregates[session.subject] = {
@@ -104,6 +86,15 @@ const NotesSubjectListingPage: NextPage = () => {
       setIsLoading(false);
     }
   }, []);
+  
+  useEffect(() => {
+    if(user) {
+      fetchAndAggregateSessions(user.uid);
+    } else if (!authLoading) {
+      setIsLoading(false);
+      setSubjectAggregates([]);
+    }
+  }, [user, authLoading, fetchAndAggregateSessions]);
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">

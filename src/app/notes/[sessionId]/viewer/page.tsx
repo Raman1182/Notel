@@ -1,26 +1,24 @@
 
 'use client';
 
-import { Suspense, useEffect, useState, useMemo } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation'; // Added useSearchParams
-import Link from 'next/link'; // Added Link
+import { Suspense, useEffect, useState, useMemo, useCallback } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { AppHeader } from '@/components/shared/app-header';
 import { SessionSidebar, type TreeNode, findNodeByIdRecursive } from '@/components/study/session-sidebar';
 import type { SessionData } from '@/app/study/launch/page';
 import { Loader2, AlertTriangle, Edit } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button'; // Added Button
+import { Button } from '@/components/ui/button';
+import { getSession, type SessionDocumentWithId } from '@/services/session-service';
+import { useAuth } from '@/contexts/auth-context';
 
 function findFirstNoteRecursiveViewer(nodes: TreeNode[]): TreeNode | null {
   for (const node of nodes) {
-    if (node.type === 'note') {
-      return node;
-    }
+    if (node.type === 'note') return node;
     if (node.children) {
       const foundInChild = findFirstNoteRecursiveViewer(node.children);
-      if (foundInChild) {
-        return foundInChild;
-      }
+      if (foundInChild) return foundInChild;
     }
   }
   return null;
@@ -29,12 +27,13 @@ function findFirstNoteRecursiveViewer(nodes: TreeNode[]): TreeNode | null {
 function SessionNotesViewerContent() {
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams(); // To potentially get subject name for breadcrumbs
+  const searchParams = useSearchParams();
+  const { user } = useAuth();
 
   const sessionId = params.sessionId as string;
-  const subjectNameFromQuery = searchParams.get('subject'); // Optional subject from query
+  const subjectNameFromQuery = searchParams.get('subject');
 
-  const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [sessionData, setSessionData] = useState<SessionDocumentWithId | null>(null);
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
   const [notesContent, setNotesContent] = useState<Record<string, string>>({});
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
@@ -42,59 +41,36 @@ function SessionNotesViewerContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Use sessionData.subject if available, otherwise fallback to query or 'Session'
   const currentSubjectName = useMemo(() => {
     if (sessionData?.subject) return sessionData.subject;
     if (subjectNameFromQuery) return subjectNameFromQuery;
     return "Session";
   }, [sessionData, subjectNameFromQuery]);
 
-
-  useEffect(() => {
-    if (!sessionId) {
-      setError("Session ID is missing.");
-      setIsLoading(false);
-      return;
-    }
+  const loadSession = useCallback(async (sid: string) => {
     setIsLoading(true);
     setError(null);
     try {
-      const storedSessionDataJSON = localStorage.getItem(`learnlog-session-${sessionId}`);
-      if (!storedSessionDataJSON) {
-        setError(`Session data not found for ID: ${sessionId}. It might have been deleted or never existed.`);
-        setIsLoading(false);
-        return;
-      }
-      const parsedSessionData: SessionData = JSON.parse(storedSessionDataJSON);
-      setSessionData(parsedSessionData);
-
-      const storedTreeJSON = localStorage.getItem(`learnlog-session-${sessionId}-tree`);
-      const parsedTreeData: TreeNode[] = storedTreeJSON ? JSON.parse(storedTreeJSON) : [];
-      if (parsedTreeData.length === 0 && parsedSessionData.subject) {
-         parsedTreeData.push({
-            id: 'root',
-            name: parsedSessionData.subject,
-            type: 'subject',
-            children: [],
-            parentId: null
-         });
-      }
-      setTreeData(parsedTreeData);
-
-      const storedNotesContentJSON = localStorage.getItem(`learnlog-session-${sessionId}-notesContent`);
-      const parsedNotesContent: Record<string, string> = storedNotesContentJSON ? JSON.parse(storedNotesContentJSON) : {};
-      setNotesContent(parsedNotesContent);
+        const fetchedSession = await getSession(sid);
+        if (!fetchedSession || fetchedSession.userId !== user?.uid) {
+            setError(fetchedSession ? "You do not have permission to view this session." : "Session data not found.");
+            setIsLoading(false);
+            return;
+        }
+        
+        setSessionData(fetchedSession);
+        const parsedTreeData = fetchedSession.treeData || [];
+        setTreeData(parsedTreeData);
+        const parsedNotesContent = fetchedSession.notesContent || {};
+        setNotesContent(parsedNotesContent);
       
-      const firstNote = findFirstNoteRecursiveViewer(parsedTreeData);
-      if (firstNote) {
-        setActiveNoteId(firstNote.id);
-        setCurrentNoteDisplayContent(parsedNotesContent[firstNote.id] || 'This note is empty or content could not be loaded.');
-      } else if (parsedTreeData.length > 0 && parsedTreeData[0].type === 'subject') {
-        setActiveNoteId(parsedTreeData[0].id); 
-        setCurrentNoteDisplayContent(`Select a note from the '${parsedSessionData.subject}' session to view its content, or create one if you open this session for editing.`);
-      } else {
-        setCurrentNoteDisplayContent('No notes available in this session or structure is unrecognized.');
-      }
+        const firstNote = findFirstNoteRecursiveViewer(parsedTreeData);
+        if (firstNote) {
+            setActiveNoteId(firstNote.id);
+            setCurrentNoteDisplayContent(parsedNotesContent[firstNote.id] || 'This note is empty.');
+        } else {
+            setCurrentNoteDisplayContent('Select a note to view its content.');
+        }
 
     } catch (err) {
       console.error("Error loading session for viewing:", err);
@@ -102,12 +78,20 @@ function SessionNotesViewerContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [sessionId]);
+  }, [user]);
+
+  useEffect(() => {
+    if (sessionId && user) {
+        loadSession(sessionId);
+    } else if (!user) {
+        setIsLoading(false);
+    }
+  }, [sessionId, user, loadSession]);
 
   const handleNoteSelectInViewer = (nodeId: string, nodeType: TreeNode['type']) => {
     setActiveNoteId(nodeId);
     if (nodeType === 'note') {
-      setCurrentNoteDisplayContent(notesContent[nodeId] || 'This note is empty or content could not be loaded.');
+      setCurrentNoteDisplayContent(notesContent[nodeId] || 'This note is empty.');
     } else {
       const selectedNode = findNodeByIdRecursive(treeData, nodeId);
       setCurrentNoteDisplayContent(`You've selected '${selectedNode?.name || 'an item'}'. Select a specific note to see its content.`);
@@ -115,7 +99,6 @@ function SessionNotesViewerContent() {
   };
   
   const currentActiveNode = activeNoteId ? findNodeByIdRecursive(treeData, activeNoteId) : null;
-
 
   if (isLoading) {
     return (
@@ -158,7 +141,6 @@ function SessionNotesViewerContent() {
   }
   
   const sessionDateForBreadcrumb = sessionData.startTime ? new Date(sessionData.startTime).toLocaleDateString() : "Details";
-
 
   return (
     <div className="flex flex-col h-screen bg-[#0A0A0A] text-foreground overflow-hidden">
@@ -227,4 +209,3 @@ export default function SessionNotesViewerPage() {
     </Suspense>
   );
 }
-

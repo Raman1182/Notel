@@ -8,10 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AppHeader } from '@/components/shared/app-header';
-import { Sparkles, Target, Edit3, Clock, Music2, Play, BookOpen, BarChart3, Flame, Loader2, RadioTower } from 'lucide-react';
+import { Sparkles, Edit3, Clock, Music2, Play, BookOpen, Loader2, RadioTower } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { useAuth } from '@/contexts/auth-context';
+import { addSession } from '@/services/session-service';
+import { useToast } from '@/hooks/use-toast';
 
 const recentSubjectsData = [
   { name: 'Physics', icon: <BookOpen className="h-4 w-4 mr-2" /> },
@@ -20,7 +23,7 @@ const recentSubjectsData = [
 ];
 
 const durationOptionsData = [
-  { label: '25 min', value: 25, description: 'Standard Focus' }, // Changed Pomodoro to Standard
+  { label: '25 min', value: 25, description: 'Standard Focus' },
   { label: '45 min', value: 45, description: 'Deep Work Block' },
   { label: '60 min', value: 60, description: 'Extended Study' },
 ];
@@ -32,45 +35,49 @@ const ambientSoundsData = [
   { name: 'Library', icon: <Music2 className="h-4 w-4 mr-2" /> },
 ];
 
-export type TimerMode = 'normal' | 'pomodoro_25_5'; // 25 min work, 5 min break
+export type TimerMode = 'normal' | 'pomodoro_25_5';
 
 export interface SessionData {
-  sessionId: string;
+  sessionId: string; // client-side only ID
   subject: string;
-  duration: number; // in minutes (this will be the work duration for pomodoro)
+  duration: number; // in minutes
   ambientSound: string;
   startTime: number; // timestamp
   timerMode: TimerMode;
-  pomodoroCycle?: { workMinutes: number; breakMinutes: number }; // Optional, for pomodoro
+  pomodoroCycle?: { workMinutes: number; breakMinutes: number };
 }
 
 const StudySessionLauncherPage: NextPage = () => {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+
   const [subject, setSubject] = useState('');
   const [selectedDuration, setSelectedDuration] = useState<number>(25); 
   const [selectedSound, setSelectedSound] = useState<string>('None');
   const [timerMode, setTimerMode] = useState<TimerMode>('normal');
   const [greeting, setGreeting] = useState("Ready to Start Your Study Session?");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
 
   useEffect(() => {
     const hour = new Date().getHours();
-    if (hour < 12) {
-      setGreeting("Ready for your morning study session?");
-    } else if (hour < 18) {
-      setGreeting("Ready for your afternoon study session?");
-    } else {
-      setGreeting("Ready for your evening study session?");
-    }
+    if (hour < 12) setGreeting("Ready for your morning study session?");
+    else if (hour < 18) setGreeting("Ready for your afternoon study session?");
+    else setGreeting("Ready for your evening study session?");
   }, []);
 
-  const handleStartSession = () => {
-    setIsLoading(true);
-    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const handleStartSession = async () => {
+    if (!user) {
+      toast({ title: "Please Sign In", description: "You must be signed in to start a study session.", variant: "destructive" });
+      router.push('/auth');
+      return;
+    }
+    
+    setIsStarting(true);
     const sessionSubject = subject.trim() === '' ? `Study Session ${new Date().toLocaleDateString()}` : subject.trim();
     
     const sessionData: SessionData = {
-      sessionId,
+      sessionId: `client_${Date.now()}`, // Temporary ID
       subject: sessionSubject,
       duration: selectedDuration, 
       ambientSound: selectedSound,
@@ -80,45 +87,17 @@ const StudySessionLauncherPage: NextPage = () => {
 
     if (timerMode === 'pomodoro_25_5') {
       sessionData.pomodoroCycle = { workMinutes: 25, breakMinutes: 5 };
-      sessionData.duration = 25; // Default work cycle for Pomodoro starts with 25
+      sessionData.duration = 25;
     }
-
 
     try {
-      localStorage.setItem(`learnlog-session-${sessionId}`, JSON.stringify(sessionData));
-
-      const sessionsIndexJSON = localStorage.getItem('learnlog-sessions-index');
-      let sessionsIndex: string[] = sessionsIndexJSON ? JSON.parse(sessionsIndexJSON) : [];
-      sessionsIndex = [sessionId, ...sessionsIndex.filter(id => id !== sessionId)].slice(0, 10); 
-      localStorage.setItem('learnlog-sessions-index', JSON.stringify(sessionsIndex));
-      
-      const initialTree = [
-        { 
-          id: 'root', 
-          name: sessionSubject, 
-          type: 'subject' as const, 
-          children: [
-            { id: `${Date.now()}-default-note`, name: 'Session Note', type: 'note' as const, children: [], parentId: 'root' }
-          ], 
-          parentId: null 
-        }
-      ];
-      localStorage.setItem(`learnlog-session-${sessionId}-tree`, JSON.stringify(initialTree));
-      localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify({[`${Date.now()}-default-note`]: ''}));
-
-
-      localStorage.setItem(`learnlog-session-${sessionId}-timer`, '0');
-      localStorage.setItem(`learnlog-session-${sessionId}-running`, 'true');
-
+      const newSessionId = await addSession(user.uid, sessionData);
+      router.push(`/study/${newSessionId}`);
     } catch (error) {
-      console.error("Failed to save session to localStorage", error);
-      setIsLoading(false);
-      return;
+      console.error("Failed to save session to Firestore", error);
+      toast({ title: "Error", description: "Could not start the session. Please try again.", variant: "destructive" });
+      setIsStarting(false);
     }
-
-    setTimeout(() => {
-      router.push(`/study/${sessionId}`);
-    }, 300); 
   };
 
   const CardWrapper: React.FC<{ title: string, icon: React.ReactNode, children: React.ReactNode, className?: string }> = ({ title, icon, children, className }) => (
@@ -154,7 +133,7 @@ const StudySessionLauncherPage: NextPage = () => {
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             className="bg-white/5 border-white/20 h-12 text-lg placeholder:text-foreground-opacity-50 focus:border-primary focus:ring-primary"
-            disabled={isLoading}
+            disabled={isStarting}
           />
           <div className="mt-3 text-sm text-foreground-opacity-70">
             Recent:
@@ -166,7 +145,7 @@ const StudySessionLauncherPage: NextPage = () => {
                   size="sm"
                   onClick={() => setSubject(item.name)}
                   className="bg-white/10 border-white/20 hover:bg-primary/20 text-foreground-opacity-70 hover:text-foreground"
-                  disabled={isLoading}
+                  disabled={isStarting}
                 >
                   {item.icon} {item.name}
                 </Button>
@@ -180,7 +159,7 @@ const StudySessionLauncherPage: NextPage = () => {
             defaultValue="normal" 
             onValueChange={(value: TimerMode) => setTimerMode(value)} 
             className="flex space-x-4"
-            disabled={isLoading}
+            disabled={isStarting}
           >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="normal" id="mode-normal" />
@@ -192,7 +171,6 @@ const StudySessionLauncherPage: NextPage = () => {
             </div>
           </RadioGroup>
         </CardWrapper>
-
 
         <CardWrapper title="Session Duration" icon={<Clock className="h-5 w-5 mr-2 text-primary" />}>
           <p className="text-xs text-muted-foreground mb-2 -mt-1">
@@ -209,21 +187,21 @@ const StudySessionLauncherPage: NextPage = () => {
                   selectedDuration !== opt.value && "bg-white/10 hover:bg-primary/20 text-foreground-opacity-70 hover:text-foreground",
                   selectedDuration === opt.value && "bg-primary text-primary-foreground hover:bg-primary/90"
                 )}
-                disabled={isLoading}
+                disabled={isStarting}
               >
                 <span className="text-lg font-semibold">{opt.label}</span>
                 <span className="text-xs opacity-80">{opt.description}</span>
               </Button>
             ))}
-             <Button // Custom duration button - might not be ideal for Pomodoro initial cycle
+             <Button
               variant={![25,45,60].includes(selectedDuration) ? 'default' : 'outline'}
-              onClick={() => setSelectedDuration(0)} // 0 could signify custom input later
+              onClick={() => setSelectedDuration(0)}
               className={cn(
                 "flex flex-col h-auto py-2 border-white/20",
                 [25,45,60].includes(selectedDuration) && "bg-white/10 hover:bg-primary/20 text-foreground-opacity-70 hover:text-foreground",
                 ![25,45,60].includes(selectedDuration) && "bg-primary text-primary-foreground hover:bg-primary/90"
               )}
-              disabled={isLoading}
+              disabled={isStarting}
               title="Set custom duration (not fully implemented for this mode)"
             >
               <span className="text-lg font-semibold">Custom</span>
@@ -244,7 +222,7 @@ const StudySessionLauncherPage: NextPage = () => {
                   selectedSound !== sound.name && "bg-white/10 hover:bg-primary/20 text-foreground-opacity-70 hover:text-foreground",
                   selectedSound === sound.name && "bg-primary text-primary-foreground hover:bg-primary/90"
                 )}
-                disabled={isLoading}
+                disabled={isStarting}
               >
                 {sound.icon} {sound.name}
               </Button>
@@ -255,11 +233,11 @@ const StudySessionLauncherPage: NextPage = () => {
         <Button
           size="lg"
           onClick={handleStartSession}
-          disabled={isLoading || subject.trim() === ''}
+          disabled={isStarting || authLoading || subject.trim() === ''}
           className="w-full max-w-md h-14 text-xl font-semibold bg-gradient-to-r from-primary to-sky-400 hover:from-primary/90 hover:to-sky-400/90 shadow-3d-lift hover:shadow-lg transition-all duration-300 ease-out group disabled:opacity-70 disabled:cursor-not-allowed"
         >
-          {isLoading ? <Loader2 className="h-6 w-6 animate-spin mr-2" /> : <Play className="h-6 w-6 mr-2 transform transition-transform group-hover:scale-110" />}
-          {isLoading ? "Starting..." : "Start Session"}
+          {isStarting ? <Loader2 className="h-6 w-6 animate-spin mr-2" /> : <Play className="h-6 w-6 mr-2 transform transition-transform group-hover:scale-110" />}
+          {isStarting ? "Starting..." : "Start Session"}
         </Button>
       </main>
     </div>
