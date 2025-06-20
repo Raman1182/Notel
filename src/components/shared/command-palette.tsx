@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react'; 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { commandPaletteActions, type CommandAction } from '@/config/command-palette-actions';
@@ -12,7 +12,9 @@ import { Loader2, Lightbulb, History, Wand2 } from 'lucide-react';
 import { smartSearchFlow, type SmartSearchInput, type SmartSearchOutput } from '@/ai/flows/smart-search-flow';
 import { useToast } from '@/hooks/use-toast';
 
-interface RecentItem extends CommandAction {
+// Define a type for what's actually stored in localStorage
+interface StoredRecentItem {
+  id: string;
   timestamp: number;
 }
 
@@ -22,7 +24,7 @@ export function CommandPalette() {
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<CommandAction[]>([]);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
-  const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
+  const [recentItems, setRecentItems] = useState<CommandAction[]>([]); // Store full CommandAction objects for rendering
   const [quickCommands, setQuickCommands] = useState<CommandAction[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   
@@ -30,20 +32,19 @@ export function CommandPalette() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const allFilteredActions = [...aiSuggestions, ...recentItems, ...quickCommands];
-
   // Listener for external open command
   useEffect(() => {
-    const handleOpen = () => {
+    const handleOpen = (event?: CustomEvent<{ initialQuery?: string }>) => {
       setIsOpen(true);
-      setSearchTerm('');
+      const initialQuery = event?.detail?.initialQuery;
+      setSearchTerm(initialQuery || '');
       setSelectedIndex(0);
       setAiSuggestions([]);
       setAiResponse(null);
       setTimeout(() => inputRef.current?.focus(), 100);
     };
-    window.addEventListener('open-command-palette', handleOpen);
-    return () => window.removeEventListener('open-command-palette', handleOpen);
+    window.addEventListener('open-command-palette', handleOpen as EventListener);
+    return () => window.removeEventListener('open-command-palette', handleOpen as EventListener);
   }, []);
 
   // Keyboard shortcut listener
@@ -54,7 +55,7 @@ export function CommandPalette() {
         setIsOpen((open) => {
           const newOpenState = !open;
           if (newOpenState) {
-            setSearchTerm('');
+            setSearchTerm(''); // Reset search term on open, unless initialQuery is passed via event
             setSelectedIndex(0);
             setAiSuggestions([]);
             setAiResponse(null);
@@ -70,63 +71,66 @@ export function CommandPalette() {
 
   // Load and rehydrate recent items from localStorage
   useEffect(() => {
-    if (typeof window !== 'undefined' && isOpen) { // Load/rehydrate only when palette opens
+    if (typeof window !== 'undefined' && isOpen) {
       const storedRecentsJSON = localStorage.getItem('learnlog-recent-cmd-items');
       if (storedRecentsJSON) {
         try {
-          // Parse items; icon property will be undefined/null if it was a function
-          const parsedStoredRecents: Array<Omit<RecentItem, 'icon' | 'perform'> & { icon?: any, perform?: any, timestamp: number }> = JSON.parse(storedRecentsJSON);
+          const parsedStoredRecents: StoredRecentItem[] = JSON.parse(storedRecentsJSON);
           
-          const rehydratedRecents = parsedStoredRecents.map(storedItem => {
-            const originalAction = commandPaletteActions.find(cmd => cmd.id === storedItem.id);
-            
-            if (!originalAction) return null; // Should not happen if IDs are consistent
-
-            return {
-              // Start with all properties from the original action definition
-              ...originalAction,
-              // Override with the timestamp from storage
-              timestamp: storedItem.timestamp,
-              // Ensure crucial properties like id, name, section, href come from original if they somehow differ
-              // though storedItem should be sufficient for these if addRecentItem is robust.
-              // We are primarily concerned with rehydrating `icon` and `perform`.
-              id: originalAction.id,
-              name: originalAction.name,
-              section: originalAction.section,
-              keywords: originalAction.keywords,
-              href: originalAction.href,
-              icon: originalAction.icon, // Re-assign the icon component
-              perform: originalAction.perform, // Re-assign the perform function
-            } as RecentItem;
-          }).filter(item => item !== null) as RecentItem[]; // Filter out nulls and cast
+          const rehydratedRecents = parsedStoredRecents
+            .map(storedItem => {
+              const originalAction = commandPaletteActions.find(cmd => cmd.id === storedItem.id);
+              if (!originalAction) return null;
+              // Attach timestamp for sorting, then it can be used for display if needed or stripped
+              return { ...originalAction, timestamp: storedItem.timestamp };
+            })
+            .filter(item => item !== null) as (CommandAction & { timestamp: number })[];
           
-          setRecentItems(rehydratedRecents.sort((a, b) => b.timestamp - a.timestamp));
+          rehydratedRecents.sort((a, b) => b.timestamp - a.timestamp); // Sort by most recent first
+          
+          setRecentItems(rehydratedRecents);
         } catch (e) {
           console.error("Failed to parse or rehydrate recent items from localStorage", e);
-          localStorage.removeItem('learnlog-recent-cmd-items'); // Clear corrupted data
-          setRecentItems([]); // Reset to empty
+          localStorage.removeItem('learnlog-recent-cmd-items');
+          setRecentItems([]);
         }
       } else {
-        setRecentItems([]); // No items in storage
+        setRecentItems([]);
       }
     }
   }, [isOpen]);
 
 
   const addRecentItem = useCallback((action: CommandAction) => {
-    setRecentItems(prev => {
-      const newRecents = [
-        { ...action, timestamp: Date.now() },
-        ...prev.filter(item => item.id !== action.id)
-      ]
-      .sort((a, b) => b.timestamp - a.timestamp) // Keep sorted by most recent
-      .slice(0, 5); // Keep last 5
+    let currentStoredRecents: StoredRecentItem[] = [];
+    if (typeof window !== 'undefined') {
+        const storedRecentsJSON = localStorage.getItem('learnlog-recent-cmd-items');
+        currentStoredRecents = storedRecentsJSON ? JSON.parse(storedRecentsJSON) : [];
+    }
 
-      // When stringifying, function properties (icon, perform) are omitted by default.
-      // This is fine, as we rehydrate them on load.
-      localStorage.setItem('learnlog-recent-cmd-items', JSON.stringify(newRecents));
-      return newRecents;
-    });
+    currentStoredRecents = currentStoredRecents.filter(item => item.id !== action.id);
+    currentStoredRecents.unshift({ id: action.id, timestamp: Date.now() });
+
+    const newStoredRecents = currentStoredRecents
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 5);
+
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('learnlog-recent-cmd-items', JSON.stringify(newStoredRecents));
+    }
+    
+    // Update the state for immediate UI reflection
+    const rehydratedNewRecents = newStoredRecents
+        .map(storedItem => {
+            const originalAction = commandPaletteActions.find(cmd => cmd.id === storedItem.id);
+            if (!originalAction) return null;
+            return { ...originalAction, timestamp: storedItem.timestamp };
+        })
+        .filter(item => item !== null) as (CommandAction & { timestamp: number })[];
+    
+    rehydratedNewRecents.sort((a, b) => b.timestamp - a.timestamp);
+    setRecentItems(rehydratedNewRecents);
+
   }, []);
 
   // AI Search Debounce
@@ -144,8 +148,7 @@ export function CommandPalette() {
         const input: SmartSearchInput = { query: searchTerm, currentPage: window.location.pathname };
         const result: SmartSearchOutput = await smartSearchFlow(input);
         
-        // AI suggestions don't have icons from the flow, this is handled by action.icon being undefined
-        setAiSuggestions(result.suggestedActions || []);
+        setAiSuggestions(result.suggestedActions?.map(sa => ({...sa, icon: commandPaletteActions.find(ca => ca.id === sa.id)?.icon || Wand2 })) || []);
         setAiResponse(result.aiResponse || null);
 
       } catch (error) {
@@ -185,8 +188,18 @@ export function CommandPalette() {
       (action.keywords && action.keywords.some(keyword => keyword.toLowerCase().includes(lowerSearchTerm)))
     ).slice(0, 10);
     setQuickCommands(results);
-    setSelectedIndex(0);
+    setSelectedIndex(0); 
   }, [searchTerm]);
+
+  const allFilteredActions = useMemo(() => {
+    const aiActionIds = new Set(aiSuggestions.map(a => a.id));
+    const recentActionIds = new Set(recentItems.map(r => r.id));
+
+    const uniqueRecents = recentItems.filter(r => !aiActionIds.has(r.id));
+    const uniqueQuickCommands = quickCommands.filter(qc => !aiActionIds.has(qc.id) && !recentActionIds.has(qc.id));
+    
+    return [...aiSuggestions, ...uniqueRecents, ...uniqueQuickCommands];
+  }, [aiSuggestions, recentItems, quickCommands]);
 
 
   const handleAction = useCallback((action: CommandAction) => {
@@ -230,7 +243,7 @@ export function CommandPalette() {
 
   if (!isOpen) return null;
 
-  const renderSection = (title: string, iconElement: React.ElementType, items: CommandAction[], isLoading?: boolean, emptyText?: string) => {
+  const renderSection = (title: string, iconElement: React.ElementType, items: CommandAction[], isLoading?: boolean, itemOffset: number = 0) => {
     if (isLoading) {
       return (
         <div className="px-3 py-2">
@@ -246,7 +259,7 @@ export function CommandPalette() {
     }
 
     if (!items || items.length === 0) {
-      if (emptyText && searchTerm) { 
+      if (title === "Quick Commands" && searchTerm) { // Only show "No commands match" for Quick Commands if searching
          return (
             <div className="px-3 py-2">
                 <div className="flex items-center text-xs font-semibold text-muted-foreground tracking-wider mb-2">
@@ -265,30 +278,20 @@ export function CommandPalette() {
           {React.createElement(iconElement, { className: "h-4 w-4 mr-2" })}
           {title}
         </div>
-        {items.map((action, itemIndex) => {
-          let globalIndex = 0;
-          // Calculate globalIndex based on which section this item belongs to.
-          // This logic assumes aiSuggestions, recentItems, quickCommands are the only sources for allFilteredActions.
-          // And they appear in that order.
-          const aiSuggestionsLength = aiSuggestions?.length || 0;
-          const recentItemsLength = recentItems?.length || 0;
-
-          if (items === aiSuggestions) globalIndex = itemIndex;
-          else if (items === recentItems) globalIndex = aiSuggestionsLength + itemIndex;
-          else if (items === quickCommands) globalIndex = aiSuggestionsLength + recentItemsLength + itemIndex;
-          
-          const ActionIcon = action.icon; // This should now be a valid LucideIcon or undefined
+        {items.map((action, localIndex) => {
+          const globalIndex = itemOffset + localIndex;
+          const ActionIcon = action.icon || Wand2; // Default to Wand2 if no icon
           return (
             <button
-              key={action.id + '-' + title + '-' + itemIndex} 
+              key={action.id + '-' + title + '-' + localIndex} 
               id={`action-item-${globalIndex}`}
               onClick={() => handleAction(action)}
               className={`w-full text-left flex items-center gap-3 p-2.5 mx-1 rounded-md transition-colors duration-100 ease-in-out
-                ${globalIndex === selectedIndex ? 'bg-primary/20 text-primary-foreground' : 'hover:bg-primary/10'}`}
+                ${globalIndex === selectedIndex ? 'bg-primary/20 text-primary font-semibold' : 'hover:bg-primary/10 text-foreground'}`}
               aria-selected={globalIndex === selectedIndex}
               role="option"
             >
-              {ActionIcon && typeof ActionIcon === 'function' && <ActionIcon className="h-5 w-5 text-muted-foreground group-hover:text-primary-foreground flex-shrink-0" />}
+              <ActionIcon className="h-5 w-5 text-muted-foreground group-hover:text-primary flex-shrink-0" />
               <span className="flex-1 text-sm truncate">{action.name}</span>
               {action.href && <span className="text-xs text-muted-foreground">Navigate</span>}
             </button>
@@ -298,6 +301,18 @@ export function CommandPalette() {
     );
   };
   
+  let currentOffset = 0;
+  const aiSuggestionsSection = !isLoadingAi && aiSuggestions.length > 0 ? 
+    renderSection("AI Suggestions", Wand2, aiSuggestions, false, currentOffset) : null;
+  currentOffset += aiSuggestions.length;
+
+  const recentItemsSection = searchTerm.length === 0 && recentItems.length > 0 && !isLoadingAi ? 
+    renderSection("Recent", History, recentItems, false, currentOffset) : null;
+  if (searchTerm.length === 0 && recentItems.length > 0) currentOffset += recentItems.length;
+  
+  const quickCommandsSection = quickCommands.length > 0 && !isLoadingAi ? 
+    renderSection("Quick Commands", Lightbulb, quickCommands, false, currentOffset) : null;
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="p-0 max-w-2xl w-[95vw] sm:w-full bg-popover/80 backdrop-blur-xl border-border shadow-2xl rounded-xl overflow-hidden flex flex-col max-h-[80vh]">
@@ -315,7 +330,7 @@ export function CommandPalette() {
         </div>
         <ScrollArea className="flex-grow">
           <div className="py-1">
-            {isLoadingAi && searchTerm.length >=3 && renderSection("AI Suggestions", Wand2, [], true)}
+            {isLoadingAi && searchTerm.length >=3 && renderSection("AI Suggestions", Wand2, [], true, 0)}
             {!isLoadingAi && aiResponse && (
                 <div className="px-1 py-2">
                     <div className="flex items-center px-3 text-xs font-semibold text-muted-foreground tracking-wider mb-1">
@@ -326,11 +341,9 @@ export function CommandPalette() {
                     </div>
                 </div>
             )}
-            {!isLoadingAi && aiSuggestions.length > 0 && renderSection("AI Suggestions", Wand2, aiSuggestions)}
-            
-            {searchTerm.length === 0 && recentItems.length > 0 && renderSection("Recent", History, recentItems)}
-            
-            {quickCommands.length > 0 && renderSection("Quick Commands", Lightbulb, quickCommands, false, "No commands match your search.")}
+            {aiSuggestionsSection}
+            {recentItemsSection}
+            {quickCommandsSection}
 
             {allFilteredActions.length === 0 && searchTerm && !isLoadingAi && (
               <p className="p-6 text-sm text-center text-muted-foreground">No results found for "{searchTerm}".</p>
@@ -346,4 +359,3 @@ export function CommandPalette() {
     </Dialog>
   );
 }
-
