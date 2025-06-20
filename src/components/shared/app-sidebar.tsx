@@ -11,8 +11,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
-  SidebarSeparator,
-  useSidebar, // Import useSidebar
+  useSidebar, 
 } from "@/components/ui/enhanced-sidebar";
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -22,12 +21,11 @@ import {
   BookOpen,
   FileText,
   ListChecks,
-  Library,
-  Sparkles, // Changed from Lightbulb for logo, use Lightbulb for AI Assistant
+  Briefcase, // Changed from Library
+  Sparkles, 
   Settings,
-  Target, // For Start Session icon
-  Briefcase, // Example for Resources
-  MessageCircle // Example for AI Assistant
+  Target, 
+  MessageCircle // Changed from Lightbulb for AI Assistant icon
 } from 'lucide-react';
 
 const navItems = [
@@ -75,17 +73,14 @@ export function AppSidebar() {
         <SidebarMenu>
           {navItems.map((item) => (
             <SidebarMenuItem key={item.label}>
-              <Link href={item.href} passHref legacyBehavior>
+              <Link href={item.href} passHref>
                 <SidebarMenuButton
-                  asChild
                   isActive={pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))}
                   tooltip={item.label}
-                  className="group-data-[collapsible=icon]:justify-center"
+                  className="group-data-[collapsible=icon]:justify-start"
                 >
-                  <a>
-                    <item.icon className="h-5 w-5 text-muted-foreground group-hover:text-sidebar-primary group-data-[active=true]:text-primary flex-shrink-0" />
-                    <span className="group-data-[collapsible=icon]:hidden min-w-0 truncate">{item.label}</span>
-                  </a>
+                  <item.icon className="h-5 w-5 text-muted-foreground group-hover:text-sidebar-primary group-data-[active=true]:text-primary flex-shrink-0" />
+                  <span className="group-data-[collapsible=icon]:hidden min-w-0 truncate">{item.label}</span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
@@ -108,17 +103,14 @@ export function AppSidebar() {
             <p className="font-semibold text-foreground">John Doe</p>
           </div>
         </div>
-         <Link href="/settings" passHref legacyBehavior className="mt-2">
+         <Link href="/settings" passHref className="mt-2">
             <SidebarMenuButton
-                asChild
                 isActive={pathname === '/settings'}
                 tooltip="Settings"
-                className="group-data-[collapsible=icon]:justify-center"
+                className="group-data-[collapsible=icon]:justify-start"
             >
-                <a>
-                    <Settings className="h-5 w-5 text-muted-foreground group-hover:text-sidebar-primary group-data-[active=true]:text-primary flex-shrink-0" />
-                    <span className="group-data-[collapsible=icon]:hidden min-w-0 truncate">Settings</span>
-                </a>
+                <Settings className="h-5 w-5 text-muted-foreground group-hover:text-sidebar-primary group-data-[active=true]:text-primary flex-shrink-0" />
+                <span className="group-data-[collapsible=icon]:hidden min-w-0 truncate">Settings</span>
             </SidebarMenuButton>
         </Link>
       </SidebarFooter>
