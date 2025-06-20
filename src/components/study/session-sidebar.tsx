@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronDown, FileText as FileTextIcon, FolderOpen, FolderClosed, BookText, ChevronsLeftRight, PlusSquare, FilePlus2, FolderPlus, Dot, Edit2, Trash2 } from 'lucide-react'; // Renamed FileText
+import { ChevronDown, FileText as FileTextIcon, FolderOpen, FolderClosed, BookText, ChevronsLeftRight, PlusSquare, FilePlus2, FolderPlus, Dot, Edit2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,6 @@ export interface TreeNode {
   parentId: string | null; 
 }
 
-// Helper function to find a node by ID in the tree (can be co-located or imported if used elsewhere)
 export function findNodeByIdRecursive(nodes: TreeNode[], id: string): TreeNode | null {
   for (const node of nodes) {
     if (node.id === id) return node;
@@ -28,12 +27,11 @@ export function findNodeByIdRecursive(nodes: TreeNode[], id: string): TreeNode |
   return null;
 }
 
-
 const TypeIconMap: Record<TreeNode['type'], React.ElementType> = {
   subject: BookText,
   title: FolderOpen, 
   subheading: FolderOpen, 
-  note: FileTextIcon, // Use renamed import
+  note: FileTextIcon,
 };
 
 interface TreeItemDisplayProps {
@@ -42,9 +40,10 @@ interface TreeItemDisplayProps {
   onSelectNode: (id: string, type: TreeNode['type']) => void;
   activeNodeId: string | null;
   onAddNode: (parentId: string, type: 'title' | 'subheading' | 'note', name: string) => void;
+  isReadOnly?: boolean;
 }
 
-const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelectNode, activeNodeId, onAddNode }) => {
+const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelectNode, activeNodeId, onAddNode, isReadOnly = false }) => {
   const [isOpen, setIsOpen] = useState(level < 1 || item.type === 'subject' || (item.children && item.children.length > 0 && item.type !== 'note')); 
   const [isHovered, setIsHovered] = useState(false);
   
@@ -58,6 +57,7 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
   }, [editingChild]);
 
   const handleStartAddChild = (type: 'title' | 'subheading' | 'note', e?: React.MouseEvent) => {
+    if (isReadOnly) return;
     e?.stopPropagation();
     e?.preventDefault();
     setEditingChild({ type, name: '' });
@@ -100,7 +100,7 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
     onSelectNode(item.id, item.type);
   };
 
-  const canAddTitle = item.type === 'subject';
+  const canAddTitle = item.type === 'subject'; // This might not be used if only root can add titles via top buttons
   const canAddSubheading = item.type === 'title'; 
   const canAddNoteToThisLevel = item.type === 'subject' || item.type === 'title' || item.type === 'subheading';
 
@@ -117,7 +117,7 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {item.type !== 'note' ? ( 
+        {item.type !== 'note' && item.children && item.children.length >= 0 ? ( // Show chevron only if it can have children and is not a note
           <button onClick={handleToggleOpen} className="p-0.5 mr-1.5 rounded-sm hover:bg-white/20 focus:outline-none shrink-0">
             <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-0' : '-rotate-90'}`} />
           </button>
@@ -128,19 +128,14 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
         <ItemIcon className={cn(`h-4 w-4 mr-1.5 shrink-0`, item.type === 'subject' ? 'text-primary' : activeNodeId === item.id ? 'text-primary': 'text-foreground-opacity-50 group-hover:text-foreground-opacity-70')} />
         <span className="truncate flex-1 group-hover:text-foreground-opacity-100">{item.name}</span>
 
-        {isHovered && !editingChild && (item.type !== 'note') && ( // Only show add buttons for non-note items
+        {!isReadOnly && isHovered && !editingChild && (item.type !== 'note') && (
           <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center space-x-0.5 bg-[#0F0F0F] p-0.5 rounded">
-            {canAddTitle && ( // For root 'subject' node to add 'title'
-              <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 hover:bg-white/20" title={`Add Title to ${item.name}`} onClick={(e) => handleStartAddChild('title', e)}>
-                <FolderPlus className="h-3.5 w-3.5" />
-              </Button>
-            )}
-            {canAddSubheading && ( // For 'title' node to add 'subheading'
+            {canAddSubheading && ( 
               <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 hover:bg-white/20" title={`Add Sub-heading to ${item.name}`} onClick={(e) => handleStartAddChild('subheading', e)}>
                 <FolderPlus className="h-3.5 w-3.5" />
               </Button>
             )}
-            {canAddNoteToThisLevel && ( // For 'subject', 'title', 'subheading'
+            {canAddNoteToThisLevel && ( 
               <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 hover:bg-white/20" title={`Add Note to ${item.name}`} onClick={(e) => handleStartAddChild('note', e)}>
                 <FilePlus2 className="h-3.5 w-3.5" />
               </Button>
@@ -149,7 +144,7 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
         )}
       </div>
       
-      {isOpen && editingChild && (
+      {!isReadOnly && isOpen && editingChild && (
         <div 
           className="flex items-center py-1.5 pr-1" 
           style={{ paddingLeft: `${0.5 + (level + 1) * 0.8}rem` }} 
@@ -181,6 +176,7 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
             onSelectNode={onSelectNode} 
             activeNodeId={activeNodeId} 
             onAddNode={onAddNode}
+            isReadOnly={isReadOnly}
         />
       ))}
     </div>
@@ -193,14 +189,15 @@ interface SessionSidebarProps {
   onSelectNode: (id: string, type: TreeNode['type']) => void;
   activeNodeId: string | null;
   onAddNode: (parentId: string | null, type: 'title' | 'subheading' | 'note', name: string) => void;
+  isReadOnly?: boolean;
 }
 
-export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeNodeId, onAddNode }: SessionSidebarProps) {
+export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeNodeId, onAddNode, isReadOnly = false }: SessionSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isAddingAtRoot, setIsAddingAtRoot] = useState<{ type: 'title' | 'note'; name: string } | null>(null);
   const rootInputRef = useRef<HTMLInputElement>(null);
 
-  const rootNode = treeData.length > 0 && treeData[0].type === 'subject' ? treeData[0] : null;
+  const rootNode = treeData.length > 0 && treeData[0]?.type === 'subject' ? treeData[0] : null;
 
   useEffect(() => {
     if (isAddingAtRoot && rootInputRef.current) {
@@ -209,6 +206,7 @@ export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeN
   }, [isAddingAtRoot]);
 
   const handleStartAddAtRoot = (type: 'title' | 'note', e?: React.MouseEvent) => {
+    if (isReadOnly) return;
     e?.stopPropagation();
     setIsAddingAtRoot({ type, name: '' });
   };
@@ -221,6 +219,7 @@ export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeN
 
   const handleConfirmAddAtRoot = (e?: React.FormEvent | React.FocusEvent) => {
     e?.preventDefault();
+    e?.stopPropagation();
     if (isAddingAtRoot && isAddingAtRoot.name.trim() && rootNode) {
       onAddNode(rootNode.id, isAddingAtRoot.type, isAddingAtRoot.name.trim());
     }
@@ -231,14 +230,13 @@ export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeN
     setIsAddingAtRoot(null);
   };
 
-
   if (isCollapsed) {
     return (
       <div className="w-[60px] h-full bg-[#0F0F0F] text-white p-3 flex flex-col items-center space-y-4 shrink-0 transition-all duration-300 ease-in-out border-r border-white/10">
         <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(false)} className="hover:bg-white/20">
           <ChevronsLeftRight className="h-5 w-5 transform rotate-180" />
         </Button>
-        {rootNode && <BookText className="h-6 w-6 text-primary cursor-pointer hover:opacity-80" title={sessionSubject || "Notebook"} onClick={() => onSelectNode(rootNode.id, 'subject')}/>}
+        {rootNode && <BookText className="h-6 w-6 text-primary cursor-pointer hover:opacity-80" title={sessionSubject || "Notebook"} onClick={() => rootNode && onSelectNode(rootNode.id, 'subject')}/>}
       </div>
     );
   }
@@ -252,7 +250,7 @@ export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeN
                     "flex items-center gap-2 w-full mr-1 cursor-pointer rounded-md p-1 flex-grow",
                     activeNodeId === rootNode.id ? 'bg-primary/20 text-primary font-medium -ml-1 pl-2' : 'hover:bg-white/10'
                 )}
-                onClick={() => rootNode && onSelectNode(rootNode.id, 'subject')} // Check rootNode existence
+                onClick={() => rootNode && onSelectNode(rootNode.id, 'subject')}
             >
                 <BookText className="h-5 w-5 text-primary flex-shrink-0" />
                 <h2 className="text-lg font-semibold truncate" title={sessionSubject}>
@@ -266,12 +264,12 @@ export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeN
             </div>
         )}
         <div className="flex items-center shrink-0">
-            {rootNode && ( // Only show add buttons if rootNode exists
+            {!isReadOnly && rootNode && (
               <>
                 <Button variant="ghost" size="icon" title="Add New Title" onClick={(e) => handleStartAddAtRoot('title', e)} className="hover:bg-white/20 h-7 w-7 p-1">
                     <FolderPlus className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" title="Add New Note" onClick={(e) => handleStartAddAtRoot('note', e)} className="hover:bg-white/20 h-7 w-7 p-1">
+                <Button variant="ghost" size="icon" title="Add New Note to Subject" onClick={(e) => handleStartAddAtRoot('note', e)} className="hover:bg-white/20 h-7 w-7 p-1">
                     <FilePlus2 className="h-4 w-4" />
                 </Button>
               </>
@@ -290,9 +288,10 @@ export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeN
                 onSelectNode={onSelectNode} 
                 activeNodeId={activeNodeId}
                 onAddNode={onAddNode}
+                isReadOnly={isReadOnly}
               />
          ))}
-         {rootNode && isAddingAtRoot && (
+         {!isReadOnly && rootNode && isAddingAtRoot && (
             <div 
                 className="flex items-center py-1.5 pr-1" 
                 style={{ paddingLeft: `${0.5 + 0 * 0.8}rem` }} 
@@ -316,7 +315,9 @@ export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeN
             </div>
          )}
          {rootNode && (!rootNode.children || rootNode.children.length === 0) && !isAddingAtRoot && (
-            <p className="text-xs text-muted-foreground p-2 text-center">No items yet. Use buttons above to add.</p>
+            <p className="text-xs text-muted-foreground p-2 text-center">
+              {isReadOnly ? "No notes or titles in this session." : "No items yet. Use buttons above to add."}
+            </p>
          )}
          {!rootNode && !isAddingAtRoot && (
              <p className="text-xs text-muted-foreground p-2 text-center">Loading tree...</p>
@@ -325,6 +326,3 @@ export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeN
     </div>
   );
 }
-
-
-    

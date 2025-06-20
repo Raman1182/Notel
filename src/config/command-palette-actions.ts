@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { Home, BookOpen, Lightbulb, Settings, FileText, ListChecks, Briefcase, MessageCircle, PlayCircle } from 'lucide-react'; // Added PlayCircle
+import { Home, BookOpen, Lightbulb, Settings, FileText, ListChecks, Briefcase, MessageCircle, PlayCircle } from 'lucide-react';
 
 export interface CommandAction {
   id: string;
@@ -8,11 +8,10 @@ export interface CommandAction {
   section: string;
   icon?: LucideIcon;
   keywords?: string[];
-  perform?: () => void; // For client-side actions like navigation
-  href?: string; // For Next.js Link navigation
+  perform?: () => void; 
+  href?: string; 
 }
 
-// Corresponds to the new AppSidebar navigation
 export const commandPaletteActions: CommandAction[] = [
   {
     id: 'home',
@@ -23,19 +22,19 @@ export const commandPaletteActions: CommandAction[] = [
     href: '/',
   },
   {
-    id: 'study-session-launch', // ID updated
+    id: 'study-session-launch', 
     name: 'New Study Session', 
     section: 'Navigation', 
-    icon: PlayCircle, // Updated Icon
+    icon: PlayCircle, 
     keywords: ['study', 'session', 'focus', 'timer', 'new session', 'launch'],
-    href: '/study/launch', // Updated href
+    href: '/study/launch', 
   },
   {
     id: 'my-notes', 
     name: 'My Notes', 
     section: 'Navigation', 
     icon: FileText,
-    keywords: ['note', 'notes', 'documents', 'write', 'view'],
+    keywords: ['note', 'notes', 'documents', 'write', 'view', 'saved sessions'],
     href: '/notes', 
   },
   {
@@ -60,7 +59,7 @@ export const commandPaletteActions: CommandAction[] = [
     section: 'Navigation',
     icon: MessageCircle,
     keywords: ['ai', 'summary', 'summarize', 'assistant', 'chatbot', 'help'],
-    href: '/ai-assistant', 
+    // href: '/ai-assistant',  // Removed direct href as it opens a dialog
     perform: () => {
         const event = new CustomEvent('open-ai-assistant', { detail: { mode: 'chat' } });
         window.dispatchEvent(event);
@@ -73,11 +72,6 @@ export const commandPaletteActions: CommandAction[] = [
     icon: Settings,
     keywords: ['preferences', 'settings', 'configure', 'options', 'profile'],
     href: '/settings', 
-    perform: () => {
-      // If settings are a popover and not a page, trigger it.
-      // const settingsButton = document.querySelector('button[aria-label="App settings"]') as HTMLElement;
-      // settingsButton?.click();
-    },
   },
    {
     id: 'ai-summarize-action',
@@ -92,16 +86,22 @@ export const commandPaletteActions: CommandAction[] = [
   },
   { 
     id: 'create-new-note-action',
-    name: 'Create New Note',
+    name: 'Create New Note (in active session)',
     section: 'Actions',
     icon: FileText, 
-    keywords: ['new note', 'add note', 'quick note'],
-    // Example: perform: () => router.push('/notes/new') or trigger command palette for new note creation UI
+    keywords: ['new note', 'add note', 'quick note', 'current session'],
     perform: () => {
-        const event = new CustomEvent('open-command-palette', { detail: { initialQuery: 'create new note' } });
+        // This action implies adding a note to the *current* study session.
+        // If a study session is active, we could dispatch an event to it.
+        // For now, it might be better suited as a command within an active session
+        // rather than a global command palette action unless we can target the active session.
+        // Or, it could prompt to start a new session if none is active.
+        // For simplicity, let's assume it attempts to trigger a new note in the command palette
+        // which might then guide the user or interact with an active session if the logic exists.
+        // This is a placeholder for more complex logic.
+        const event = new CustomEvent('open-command-palette', { detail: { initialQuery: 'create new note in session' } });
         window.dispatchEvent(event);
+        // alert("To create a new note, please start or resume a study session and use the sidebar options.");
     }
   },
 ];
-
-    
