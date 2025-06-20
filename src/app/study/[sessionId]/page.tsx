@@ -418,8 +418,8 @@ function StudySessionPageContent() {
         setAiGeneratedContentType('flashcards');
         toast({ title: "Flashcards Generated", description: "AI has created flashcards from your note." });
       } else {
-         setParsedAiContent([]); // Set to empty array to indicate no flashcards generated
-         setAiGeneratedContentType('flashcards'); // Still show viewer with "No flashcards" message
+         setParsedAiContent([]); 
+         setAiGeneratedContentType('flashcards'); 
          toast({ title: "No Flashcards", description: "The AI couldn't generate flashcards from this content.", variant: "default" });
       }
     } catch (error) {
@@ -471,7 +471,7 @@ function StudySessionPageContent() {
       if (historicalNotes.length === 0) {
         toast({title: "No Historical Notes", description: "Not enough historical note data to find connections.", variant: "default"});
         setIsAiProcessing(false);
-        setAiGeneratedContentType('connections'); // To show a message in dialog
+        setAiGeneratedContentType('connections'); 
         setAiConnectionSuggestions([]);
         return;
       }
@@ -593,6 +593,9 @@ function StudySessionPageContent() {
     }
   }
 
+  // Fix: Create a new const for the prop value to avoid potential ReferenceError
+  const sidebarActiveNodeIdProp = activeNoteId;
+
 
   return (
     <div className="flex flex-col h-screen bg-[#0A0A0A] text-foreground overflow-hidden">
@@ -692,7 +695,7 @@ function StudySessionPageContent() {
           sessionSubject={notebookTitle} 
           treeData={treeData}
           onSelectNode={handleNoteSelect}
-          activeNodeId={activeNoteId}
+          activeNodeId={sidebarActiveNodeIdProp} 
           onAddNode={addNodeToTree}
         />
 
@@ -833,3 +836,4 @@ export default function StudySessionPage() {
     </Suspense>
   );
 }
+
