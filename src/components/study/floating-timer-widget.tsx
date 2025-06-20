@@ -10,7 +10,7 @@ interface FloatingTimerWidgetProps {
   timeInSeconds: number;
   isRunning: boolean;
   onTogglePlayPause: () => void;
-  onEndSession?: () => void;
+  onEndSession?: () => void; // Changed to optional as page now controls dialog
   className?: string;
 }
 
@@ -21,39 +21,40 @@ export function FloatingTimerWidget({
   onEndSession,
   className,
 }: FloatingTimerWidgetProps) {
-  const [position, setPosition] = useState({ x: window.innerWidth - 200, y: 20 }); // Initial top-right-ish
+  const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartOffset, setDragStartOffset] = useState({ x: 0, y: 0 });
   const widgetRef = useRef<HTMLDivElement>(null);
+  const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
-    // Adjust initial position if it's off-screen due to SSR/initial window size
-    if (widgetRef.current) {
+    setHasMounted(true); // Indicate component has mounted for client-side positioning
+  }, []);
+
+  useEffect(() => {
+    if (hasMounted && widgetRef.current) {
       const rect = widgetRef.current.getBoundingClientRect();
       const initialX = window.innerWidth - rect.width - 20; // 20px offset from right
       const initialY = 20; // 20px offset from top
-      setPosition({ x: initialX, y: initialY });
+      setPosition({ x: Math.max(0, initialX), y: Math.max(0, initialY) });
     }
-  }, []);
+  }, [hasMounted]);
+
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    // Only allow dragging via a specific drag handle if one exists, or the whole widget if not.
-    // For now, let's assume the whole widget is draggable if no specific handle is designated.
-    // Or, check if the target is one of the buttons.
     const target = e.target as HTMLElement;
-    if (target.closest('button')) { // Don't drag if clicking on a button
-        return;
+    // Only allow dragging if the GripVertical icon itself is clicked, or if no buttons exist for some reason
+    if (!target.closest('button') || target.closest('.drag-handle')) {
+        setIsDragging(true);
+        if (widgetRef.current) {
+          const rect = widgetRef.current.getBoundingClientRect();
+          setDragStartOffset({
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          });
+        }
+        e.preventDefault(); 
     }
-
-    setIsDragging(true);
-    if (widgetRef.current) {
-      const rect = widgetRef.current.getBoundingClientRect();
-      setDragStartOffset({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      });
-    }
-    e.preventDefault(); // Prevents text selection
   }, []);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -62,7 +63,6 @@ export function FloatingTimerWidget({
     let newX = e.clientX - dragStartOffset.x;
     let newY = e.clientY - dragStartOffset.y;
 
-    // Boundary checks
     const widgetWidth = widgetRef.current.offsetWidth;
     const widgetHeight = widgetRef.current.offsetHeight;
     
@@ -100,23 +100,33 @@ export function FloatingTimerWidget({
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  // Don't render until mounted to avoid SSR positioning issues
+  if (!hasMounted) {
+    return null;
+  }
+
   return (
     <div
       ref={widgetRef}
       className={cn(
         "fixed z-50 flex items-center justify-between p-2 rounded-lg bg-background/80 backdrop-blur-md shadow-xl border border-border",
-        "transition-opacity duration-300 ease-out", // No position transition for dragging
-        isDragging ? 'cursor-grabbing shadow-2xl' : 'cursor-grab',
+        "transition-opacity duration-300 ease-out", 
+        isDragging ? 'cursor-grabbing shadow-2xl' : 'cursor-default', // Grab on whole widget if not specific handle
         className
       )}
       style={{
         top: `${position.y}px`,
         left: `${position.x}px`,
+        touchAction: 'none', // Prevents scrolling on touch devices when dragging
       }}
-      onMouseDown={handleMouseDown}
     >
+      <div 
+        className="drag-handle flex items-center cursor-grab pr-1"
+        onMouseDown={handleMouseDown} // Attach mousedown to the drag handle only
+      >
+         <GripVertical className="h-5 w-5 text-muted-foreground/50 shrink-0 touch-none" />
+      </div>
       <div className="flex items-center space-x-1.5">
-         <GripVertical className="h-5 w-5 text-muted-foreground/50 shrink-0 mr-1 touch-none" />
         <span className="text-base font-mono font-medium text-foreground tabular-nums min-w-[50px] sm:min-w-[60px] text-center px-1">
           {formatTime(timeInSeconds)}
         </span>
@@ -133,7 +143,7 @@ export function FloatingTimerWidget({
           <Button
             variant="ghost"
             size="icon"
-            onClick={onEndSession}
+            onClick={onEndSession} // This will now trigger the dialog opening on the page
             className="h-8 w-8 sm:h-9 sm:w-9 rounded-full hover:bg-destructive/20 text-destructive"
             aria-label="End session"
           >
@@ -144,3 +154,4 @@ export function FloatingTimerWidget({
     </div>
   );
 }
+

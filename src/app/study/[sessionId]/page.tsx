@@ -7,10 +7,23 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { SessionSidebar, type TreeNode, findNodeByIdRecursive } from '@/components/study/session-sidebar';
 import { FloatingTimerWidget } from '@/components/study/floating-timer-widget';
-import { Paperclip, StickyNote, Loader2, X, Brain, MessageSquare, Sparkles, FileText as FileTextIcon } from 'lucide-react'; // Renamed FileText to FileTextIcon
+import { Paperclip, StickyNote, Loader2, X, Brain, MessageSquare, Sparkles, FileText as FileTextIcon, AlertTriangle } from 'lucide-react';
 import type { SessionData } from '@/app/study/launch/page';
 import { processText, type ProcessTextInput } from '@/ai/flows/process-text-flow';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import Link from 'next/link';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
 
 // Debounce utility
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
@@ -60,19 +73,30 @@ function StudySessionPageContent() {
   const [currentPdf, setCurrentPdf] = useState<{ name: string; dataUri: string } | null>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
+  const [allSessionsForReference, setAllSessionsForReference] = useState<SessionData[]>([]);
+  const [selectedPreviousSessionIdForReference, setSelectedPreviousSessionIdForReference] = useState<string | null>(null);
+
+
   const [showAiButtons, setShowAiButtons] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
 
-  const [sessionTime, setSessionTime] = useState(0);
+  const [sessionTime, setSessionTime] = useState(0); // in seconds
   const [isSessionRunning, setIsSessionRunning] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [notebookTitle, setNotebookTitle] = useState('');
+  const [showEndSessionDialog, setShowEndSessionDialog] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
 
   // Load session data, tree, notes, and PDF attachment info from localStorage
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId) {
+        setError("Session ID is missing.");
+        setIsLoading(false);
+        return;
+    }
     setIsLoading(true);
+    setError(null);
     try {
       const storedSessionDataJSON = localStorage.getItem(`learnlog-session-${sessionId}`);
       if (storedSessionDataJSON) {
@@ -122,23 +146,21 @@ function StudySessionPageContent() {
 
         const attachedPdfName = localStorage.getItem(`learnlog-session-${sessionId}-pdfName`);
         if (attachedPdfName) {
-          // We don't auto-load the PDF content, just remember its name.
-          // User will need to re-select if they want to view it.
-          // Optionally, prompt user here.
+          // PDF name remembered, but content needs re-selection.
         }
 
       } else {
-        toast({ title: "Error", description: "Session data not found.", variant: "destructive" });
+        setError(`Session data not found for ID: ${sessionId}. It might have been deleted or never existed.`);
         router.push('/study/launch'); 
       }
-    } catch (error) {
-      console.error("Error loading session data:", error);
-      toast({ title: "Error", description: "Could not load session data.", variant: "destructive" });
+    } catch (err) {
+      console.error("Error loading session data:", err);
+      setError("Could not load session data. It might be corrupted.");
       router.push('/study/launch');
     } finally {
       setIsLoading(false);
     }
-  }, [sessionId, router, toast]);
+  }, [sessionId, router]);
 
 
   const saveTreeToLocalStorage = useCallback(
@@ -169,7 +191,7 @@ function StudySessionPageContent() {
     if (!isLoading && activeNoteId && currentNoteContent !== (notesContent[activeNoteId] || '')) {
         setNotesContent(prev => ({ ...prev, [activeNoteId as string]: currentNoteContent }));
     }
-  }, [currentNoteContent, activeNoteId, isLoading, notesContent]); // Added notesContent to dependency array
+  }, [currentNoteContent, activeNoteId, isLoading, notesContent]); 
 
   useEffect(() => {
     if (!isLoading && Object.keys(notesContent).length > 0) {
@@ -199,28 +221,42 @@ function StudySessionPageContent() {
 
   const toggleSessionRunning = () => setIsSessionRunning(prev => !prev);
 
-  const handleEndSession = () => {
-    if (window.confirm("Are you sure you want to end this study session? All notes will be saved.")) {
-      setIsSessionRunning(false);
-      if (activeNoteId) {
+  const confirmEndSession = () => {
+    setIsSessionRunning(false);
+    // Save current note content before ending
+    if (activeNoteId) {
         const finalNotes = { ...notesContent, [activeNoteId]: currentNoteContent };
         localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(finalNotes));
-      } else {
+    } else {
         localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(notesContent));
-      }
-      if (treeData.length > 0) localStorage.setItem(`learnlog-session-${sessionId}-tree`, JSON.stringify(treeData));
-      localStorage.setItem(`learnlog-session-${sessionId}-timer`, sessionTime.toString());
-      localStorage.setItem(`learnlog-session-${sessionId}-running`, 'false'); 
-      router.push('/'); 
     }
+    if (treeData.length > 0) localStorage.setItem(`learnlog-session-${sessionId}-tree`, JSON.stringify(treeData));
+
+    // Update session data with actual duration
+    const storedSessionDataJSON = localStorage.getItem(`learnlog-session-${sessionId}`);
+    if (storedSessionDataJSON) {
+        const parsedSessionData: SessionData = JSON.parse(storedSessionDataJSON);
+        const actualDurationMinutes = Math.floor(sessionTime / 60); // Convert seconds to minutes
+        parsedSessionData.duration = actualDurationMinutes;
+        localStorage.setItem(`learnlog-session-${sessionId}`, JSON.stringify(parsedSessionData));
+    }
+
+    localStorage.setItem(`learnlog-session-${sessionId}-timer`, sessionTime.toString());
+    localStorage.setItem(`learnlog-session-${sessionId}-running`, 'false');
+    setShowEndSessionDialog(false);
+    router.push('/');
   };
+  
+  const handleAttemptEndSession = () => {
+    setShowEndSessionDialog(true);
+  };
+
 
   const handleNoteSelect = (nodeId: string, nodeType: TreeNode['type']) => {
     if (nodeType === 'note') {
       if (activeNoteId && activeNoteId !== nodeId && currentNoteContent !== (notesContent[activeNoteId] || '')) {
          setNotesContent(prev => {
             const updatedNotes = { ...prev, [activeNoteId as string]: currentNoteContent };
-            // Direct save here to ensure previous note is saved before switching
             localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(updatedNotes)); 
             return updatedNotes;
         });
@@ -228,7 +264,6 @@ function StudySessionPageContent() {
       setActiveNoteId(nodeId);
       setCurrentNoteContent(notesContent[nodeId] || '');
     } else {
-      // If a non-note item is selected, we can save the current note if active
       if (activeNoteId && currentNoteContent !== (notesContent[activeNoteId] || '')) {
          setNotesContent(prev => {
             const updatedNotes = { ...prev, [activeNoteId as string]: currentNoteContent };
@@ -237,7 +272,6 @@ function StudySessionPageContent() {
         });
       }
       setActiveNoteId(nodeId); 
-      // setCurrentNoteContent(''); // Optionally clear editor or show item name
     }
   };
 
@@ -261,15 +295,11 @@ function StudySessionPageContent() {
     
     const updateTreeRecursively = (nodes: TreeNode[], pId: string | null): TreeNode[] => {
       if (pId === null ) { 
-        // This case should ideally not be hit if we always add to 'root' or another existing node.
-        // If adding to the very top level (no root yet, which shouldn't happen with current setup),
-        // or if treeData is an array of roots (not our case with a single 'root' subject node).
-        // For our single root 'subject' node:
         if (nodes.length > 0 && nodes[0].id === 'root' && nodes[0].type === 'subject') { 
             const rootNode = nodes[0];
             return [{ ...rootNode, children: [...(rootNode.children || []), newNode] }];
         }
-        return [...nodes, newNode]; // Fallback, though less likely in current structure
+        return [...nodes, newNode]; 
       }
       return nodes.map(node => {
         if (node.id === pId) {
@@ -329,6 +359,7 @@ function StudySessionPageContent() {
         setCurrentPdf({ name: file.name, dataUri });
         setReferencePanelMode('pdf');
         setIsReferencePanelOpen(true);
+        setSelectedPreviousSessionIdForReference(null);
         if (sessionId) {
             localStorage.setItem(`learnlog-session-${sessionId}-pdfName`, file.name);
         }
@@ -337,14 +368,13 @@ function StudySessionPageContent() {
     } else if (file) {
       toast({ title: "Invalid File", description: "Please select a PDF file.", variant: "destructive" });
     }
-    // Reset file input to allow selecting the same file again if needed
     if (event.target) event.target.value = ''; 
   };
 
   const handleClearPdf = () => {
     setCurrentPdf(null);
     setReferencePanelMode(null); 
-    setIsReferencePanelOpen(false); // Or keep open with no content if preferred
+    setIsReferencePanelOpen(false); 
     if (sessionId) {
         localStorage.removeItem(`learnlog-session-${sessionId}-pdfName`);
     }
@@ -353,13 +383,29 @@ function StudySessionPageContent() {
   const handleOpenPreviousNotes = () => {
     setReferencePanelMode('notes');
     setIsReferencePanelOpen(true);
-    setCurrentPdf(null); // Ensure PDF is not shown if switching to notes
+    setCurrentPdf(null);
+    setSelectedPreviousSessionIdForReference(null);
+
+    const sessionsIndexJSON = localStorage.getItem('learnlog-sessions-index');
+    if (sessionsIndexJSON) {
+        const allIds: string[] = JSON.parse(sessionsIndexJSON);
+        const otherSessionsData = allIds
+            .filter(id => id !== sessionId) // Exclude current session
+            .map(id => {
+                const sessionJSON = localStorage.getItem(`learnlog-session-${id}`);
+                return sessionJSON ? JSON.parse(sessionJSON) as SessionData : null;
+            })
+            .filter(session => session !== null) as SessionData[];
+        setAllSessionsForReference(otherSessionsData.sort((a, b) => (b.startTime || 0) - (a.startTime || 0)));
+    } else {
+        setAllSessionsForReference([]);
+    }
   };
   
   const closeReferencePanel = () => {
     setIsReferencePanelOpen(false);
     setReferencePanelMode(null);
-    // setCurrentPdf(null); // Decide if clearing PDF on panel close is desired
+    setSelectedPreviousSessionIdForReference(null);
   }
 
   if (isLoading || !sessionData) {
@@ -367,6 +413,17 @@ function StudySessionPageContent() {
       <div className="flex flex-col h-screen bg-[#0A0A0A] text-foreground items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="mt-4 text-lg">Loading your session...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col h-screen bg-[#0A0A0A] text-foreground items-center justify-center p-6 text-center">
+        <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
+        <h2 className="text-2xl font-semibold text-destructive mb-2">Error Loading Session</h2>
+        <p className="text-muted-foreground mb-6">{error}</p>
+        <Button onClick={() => router.push('/study/launch')}>Back to Launcher</Button>
       </div>
     );
   }
@@ -379,8 +436,8 @@ function StudySessionPageContent() {
   let saveStatus = 'No active note';
   if (activeNoteId) {
     const savedContent = notesContent[activeNoteId];
-    if (savedContent === undefined && currentNoteContent === '') { // New note, not yet saved, empty
-        saveStatus = 'Saved'; // Or 'Ready to type'
+    if (savedContent === undefined && currentNoteContent === '') { 
+        saveStatus = 'Saved'; 
     } else if (savedContent === currentNoteContent) {
         saveStatus = 'Saved';
     } else {
@@ -393,6 +450,24 @@ function StudySessionPageContent() {
     <div className="flex flex-col h-screen bg-[#0A0A0A] text-foreground overflow-hidden">
       <input type="file" accept="application/pdf" ref={pdfInputRef} onChange={handlePdfSelected} className="hidden" />
       
+      <AlertDialog open={showEndSessionDialog} onOpenChange={setShowEndSessionDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>End Study Session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to end this study session? All notes will be saved, and the timer will stop.
+              The actual time studied will be recorded.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowEndSessionDialog(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmEndSession} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              End Session
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="flex flex-1 overflow-hidden">
         <SessionSidebar 
           sessionSubject={notebookTitle} 
@@ -405,10 +480,10 @@ function StudySessionPageContent() {
         <main className="flex-1 flex flex-col p-4 md:p-6 overflow-y-auto relative custom-scrollbar bg-[#0A0A0A]">
           
           <div className="flex items-center justify-between mb-4">
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground truncate max-w-[calc(100%-250px)]">
                 {notebookTitle} {activeNoteId && currentActiveNode ? `/ ${currentActiveNode.name}` : ''}
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 shrink-0">
                 <Button variant="outline" size="sm" onClick={handleOpenPdfSelector} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
                 <Paperclip className="h-4 w-4 mr-2" />
                 Add PDF
@@ -469,12 +544,35 @@ function StudySessionPageContent() {
                     </Button>
                   </div>
                 </div>
-                <div className="flex-1 flex items-center justify-center overflow-auto">
+                <div className="flex-1 flex flex-col items-center justify-start overflow-auto p-3">
                   {referencePanelMode === 'pdf' && currentPdf?.dataUri && (
-                    <iframe src={currentPdf.dataUri} width="100%" height="100%" title="PDF Viewer" className="border-none"></iframe>
+                    <iframe src={currentPdf.dataUri} width="100%" height="100%" title="PDF Viewer" className="border-none flex-1"></iframe>
                   )}
                   {referencePanelMode === 'notes' && (
-                    <div className="p-4 text-muted-foreground text-xs">Previous Notes Area - Content to be implemented.</div>
+                    <ScrollArea className="w-full h-full">
+                      {allSessionsForReference.length === 0 && (
+                        <p className="text-muted-foreground text-xs text-center py-4">No other sessions found.</p>
+                      )}
+                      {allSessionsForReference.map(session => (
+                        <Button 
+                            key={session.sessionId}
+                            variant={selectedPreviousSessionIdForReference === session.sessionId ? "secondary" : "ghost"}
+                            className="w-full justify-start text-left h-auto py-2 px-3 mb-1.5 block"
+                            onClick={() => setSelectedPreviousSessionIdForReference(session.sessionId)}
+                        >
+                            <span className="block font-medium text-sm truncate">{session.subject}</span>
+                            <span className="block text-xs text-muted-foreground">
+                                {new Date(session.startTime).toLocaleDateString()} - {session.duration} min planned
+                            </span>
+                        </Button>
+                      ))}
+                      {selectedPreviousSessionIdForReference && (
+                         <div className="mt-4 p-3 border-t border-border/20 text-center text-muted-foreground text-xs">
+                            Viewing details for the selected session is not yet implemented here.
+                            You can <Link href={`/notes/${selectedPreviousSessionIdForReference}/viewer`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">open it in a new tab</Link>.
+                         </div>
+                      )}
+                    </ScrollArea>
                   )}
                   {!referencePanelMode && (
                      <div className="p-4 text-muted-foreground text-xs">Select a reference to view.</div>
@@ -493,7 +591,7 @@ function StudySessionPageContent() {
           timeInSeconds={sessionTime}
           isRunning={isSessionRunning}
           onTogglePlayPause={toggleSessionRunning}
-          onEndSession={handleEndSession}
+          onEndSession={handleAttemptEndSession}
       />
     </div>
   );
