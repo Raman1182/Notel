@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useSettings } from '@/contexts/settings-context';
-import { useAuth } from '@/contexts/auth-context'; // Import useAuth
+import { useAuth } from '@/contexts/auth-context';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation'; 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 
 export function AppHeader() {
   const { fontSize, setFontSize, highContrast, setHighContrast } = useSettings();
-  const { user, signInWithGoogle, signOut, loading } = useAuth(); // Get auth state and functions
+  const { user, signOut, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname(); 
 
@@ -150,13 +150,12 @@ export function AppHeader() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : !loading && !user && (
-            <Button onClick={signInWithGoogle} variant="outline" className="border-primary/50 text-primary hover:bg-primary/10 hover:text-primary">
+            <Button onClick={() => router.push('/auth')} variant="outline" className="border-primary/50 text-primary hover:bg-primary/10 hover:text-primary">
                 <LogIn className="mr-2 h-4 w-4" />
                 Sign In
             </Button>
           )}
           
-          {/* Mobile Menu Trigger */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="md:hidden h-10 w-10">
