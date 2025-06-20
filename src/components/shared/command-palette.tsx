@@ -1,6 +1,7 @@
 
 'use client';
 
+import * as React from 'react'; // Added React import
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -147,7 +148,7 @@ export function CommandPalette() {
     ).slice(0, 10); // Limit results
     setQuickCommands(results);
     setSelectedIndex(0); // Reset index when commands change
-  }, [searchTerm, commandPaletteActions]);
+  }, [searchTerm]);
 
 
   const handleAction = useCallback((action: CommandAction) => {
@@ -295,10 +296,11 @@ export function CommandPalette() {
         </ScrollArea>
         <div className="p-2 border-t border-border text-center">
           <p className="text-xs text-muted-foreground">
-            Tip: Use <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-sm dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500">Cmd+K</kbd> or <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-sm dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500">/</kbd> to open.
+            Tip: Use <kbd>Cmd+K</kbd> or <kbd>/</kbd> to open.
           </p>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
+
