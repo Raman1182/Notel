@@ -54,14 +54,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  if (loading && typeof window !== 'undefined' && window.location.pathname !== '/signin') { // Avoid loader on a dedicated signin page if created
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   return (
     <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut }}>
       {children}

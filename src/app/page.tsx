@@ -16,7 +16,7 @@ import { DeadlineItem, type Deadline } from '@/components/dashboard/deadline-ite
 import { TodoItem, type Todo } from '@/components/dashboard/todo-item';
 import { SavedLinkItem, type SavedLink } from '@/components/dashboard/saved-link-item';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, CalendarClock, ListTodo, BookOpen, LinkIcon, Loader2, LogIn } from 'lucide-react';
+import { PlusCircle, CalendarClock, ListTodo, BookOpen, LinkIcon, Loader2, LogIn, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { SessionData } from '@/app/study/launch/page';
 import { ScrollArea } from '@/components/ui/scroll-area';
