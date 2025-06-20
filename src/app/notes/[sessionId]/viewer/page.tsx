@@ -1,13 +1,15 @@
 
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState, useMemo } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation'; // Added useSearchParams
+import Link from 'next/link'; // Added Link
 import { AppHeader } from '@/components/shared/app-header';
 import { SessionSidebar, type TreeNode, findNodeByIdRecursive } from '@/components/study/session-sidebar';
 import type { SessionData } from '@/app/study/launch/page';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertTriangle, Edit } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button'; // Added Button
 
 function findFirstNoteRecursiveViewer(nodes: TreeNode[]): TreeNode | null {
   for (const node of nodes) {
@@ -27,7 +29,10 @@ function findFirstNoteRecursiveViewer(nodes: TreeNode[]): TreeNode | null {
 function SessionNotesViewerContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams(); // To potentially get subject name for breadcrumbs
+
   const sessionId = params.sessionId as string;
+  const subjectNameFromQuery = searchParams.get('subject'); // Optional subject from query
 
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
@@ -36,6 +41,14 @@ function SessionNotesViewerContent() {
   const [currentNoteDisplayContent, setCurrentNoteDisplayContent] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Use sessionData.subject if available, otherwise fallback to query or 'Session'
+  const currentSubjectName = useMemo(() => {
+    if (sessionData?.subject) return sessionData.subject;
+    if (subjectNameFromQuery) return subjectNameFromQuery;
+    return "Session";
+  }, [sessionData, subjectNameFromQuery]);
+
 
   useEffect(() => {
     if (!sessionId) {
@@ -58,7 +71,6 @@ function SessionNotesViewerContent() {
       const storedTreeJSON = localStorage.getItem(`learnlog-session-${sessionId}-tree`);
       const parsedTreeData: TreeNode[] = storedTreeJSON ? JSON.parse(storedTreeJSON) : [];
       if (parsedTreeData.length === 0 && parsedSessionData.subject) {
-        // Create a default tree if none exists but session data does
          parsedTreeData.push({
             id: 'root',
             name: parsedSessionData.subject,
@@ -73,14 +85,13 @@ function SessionNotesViewerContent() {
       const parsedNotesContent: Record<string, string> = storedNotesContentJSON ? JSON.parse(storedNotesContentJSON) : {};
       setNotesContent(parsedNotesContent);
       
-      // Try to select the first note if available
       const firstNote = findFirstNoteRecursiveViewer(parsedTreeData);
       if (firstNote) {
         setActiveNoteId(firstNote.id);
         setCurrentNoteDisplayContent(parsedNotesContent[firstNote.id] || 'This note is empty or content could not be loaded.');
       } else if (parsedTreeData.length > 0 && parsedTreeData[0].type === 'subject') {
-        setActiveNoteId(parsedTreeData[0].id); // Select the subject itself
-        setCurrentNoteDisplayContent(`Select a note from the '${parsedSessionData.subject}' session to view its content.`);
+        setActiveNoteId(parsedTreeData[0].id); 
+        setCurrentNoteDisplayContent(`Select a note from the '${parsedSessionData.subject}' session to view its content, or create one if you open this session for editing.`);
       } else {
         setCurrentNoteDisplayContent('No notes available in this session or structure is unrecognized.');
       }
@@ -145,39 +156,55 @@ function SessionNotesViewerContent() {
       </div>
     );
   }
+  
+  const sessionDateForBreadcrumb = sessionData.startTime ? new Date(sessionData.startTime).toLocaleDateString() : "Details";
+
 
   return (
     <div className="flex flex-col h-screen bg-[#0A0A0A] text-foreground overflow-hidden">
       <AppHeader />
+       <nav className="text-sm text-muted-foreground px-6 pt-3 pb-1 border-b border-border/20 bg-background">
+          <Link href="/" className="hover:text-primary">Home</Link>
+          {' / '}
+          <Link href="/notes" className="hover:text-primary">View Notes</Link>
+          {currentSubjectName !== "Session" && (
+            <>
+              {' / '}
+              <Link href={`/notes/subject/${encodeURIComponent(currentSubjectName)}`} className="hover:text-primary truncate max-w-[150px] md:max-w-xs inline-block align-bottom">
+                {currentSubjectName}
+              </Link>
+            </>
+          )}
+          {' / '}
+          <span className="truncate max-w-[150px] md:max-w-xs inline-block align-bottom">Session ({sessionDateForBreadcrumb})</span>
+        </nav>
       <div className="flex flex-1 overflow-hidden">
         <SessionSidebar
           sessionSubject={sessionData.subject || 'Untitled Session'}
           treeData={treeData}
           onSelectNode={handleNoteSelectInViewer}
           activeNodeId={activeNoteId}
-          onAddNode={() => {}} // No-op for read-only viewer
+          onAddNode={() => {}} 
           isReadOnly={true} 
         />
         <main className="flex-1 flex flex-col p-4 md:p-6 overflow-y-auto relative custom-scrollbar bg-[#0A0A0A]">
           <div className="flex items-center justify-between mb-4">
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-foreground-opacity-70">
                 Viewing: {sessionData.subject} {activeNoteId && currentActiveNode ? `/ ${currentActiveNode.name}` : ''}
             </div>
-            {/* Placeholder for any viewer-specific actions if needed later */}
+             <Button variant="outline" size="sm" onClick={() => router.push(`/study/${sessionId}`)} className="bg-primary/10 hover:bg-primary/20 text-primary">
+                <Edit className="h-4 w-4 mr-2" />
+                Open in Editor
+            </Button>
           </div>
           <ScrollArea className="flex-1 bg-[#0F0F0F] rounded-lg border border-white/10 shadow-inner p-6">
-            {/* Using a div with whitespace-pre-wrap to render basic text formatting like newlines */}
             <div 
                 className="prose prose-invert max-w-none font-code text-base whitespace-pre-wrap break-words"
-                dangerouslySetInnerHTML={{ __html: currentNoteDisplayContent.replace(/\n/g, '<br />') }} // Basic newline handling
+                dangerouslySetInnerHTML={{ __html: currentNoteDisplayContent.replace(/\n/g, '<br />') }}
             />
-             {/* For more complex markdown, a parser would be needed here.
-                 Example: <ReactMarkdown>{currentNoteDisplayContent}</ReactMarkdown> 
-                 Ensure to install react-markdown and its typings if used.
-              */}
           </ScrollArea>
            <div className="mt-3 text-xs text-muted-foreground text-right border-t border-white/10 pt-2 flex justify-end items-center">
-              <span>Viewing previously saved note.</span>
+              <span>Read-only view.</span>
           </div>
         </main>
       </div>
@@ -187,7 +214,6 @@ function SessionNotesViewerContent() {
 
 export default function SessionNotesViewerPage() {
   return (
-    // Suspense is crucial here because child components might use hooks like useSearchParams/useParams
     <Suspense fallback={
       <div className="flex flex-col min-h-screen bg-background">
         <AppHeader />
@@ -201,3 +227,4 @@ export default function SessionNotesViewerPage() {
     </Suspense>
   );
 }
+

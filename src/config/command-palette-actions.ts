@@ -31,10 +31,10 @@ export const commandPaletteActions: CommandAction[] = [
   },
   {
     id: 'my-notes', 
-    name: 'My Notes', 
+    name: 'View My Notes', // Updated name
     section: 'Navigation', 
-    icon: FileText,
-    keywords: ['note', 'notes', 'documents', 'write', 'view', 'saved sessions'],
+    icon: BookOpen, // Changed icon to BookOpen to differentiate from FileText
+    keywords: ['note', 'notes', 'documents', 'write', 'view', 'saved sessions', 'subjects', 'journey'],
     href: '/notes', 
   },
   {
@@ -59,7 +59,6 @@ export const commandPaletteActions: CommandAction[] = [
     section: 'Navigation',
     icon: MessageCircle,
     keywords: ['ai', 'summary', 'summarize', 'assistant', 'chatbot', 'help'],
-    // href: '/ai-assistant',  // Removed direct href as it opens a dialog
     perform: () => {
         const event = new CustomEvent('open-ai-assistant', { detail: { mode: 'chat' } });
         window.dispatchEvent(event);
@@ -91,17 +90,8 @@ export const commandPaletteActions: CommandAction[] = [
     icon: FileText, 
     keywords: ['new note', 'add note', 'quick note', 'current session'],
     perform: () => {
-        // This action implies adding a note to the *current* study session.
-        // If a study session is active, we could dispatch an event to it.
-        // For now, it might be better suited as a command within an active session
-        // rather than a global command palette action unless we can target the active session.
-        // Or, it could prompt to start a new session if none is active.
-        // For simplicity, let's assume it attempts to trigger a new note in the command palette
-        // which might then guide the user or interact with an active session if the logic exists.
-        // This is a placeholder for more complex logic.
         const event = new CustomEvent('open-command-palette', { detail: { initialQuery: 'create new note in session' } });
         window.dispatchEvent(event);
-        // alert("To create a new note, please start or resume a study session and use the sidebar options.");
     }
   },
 ];

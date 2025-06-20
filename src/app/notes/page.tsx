@@ -2,36 +2,104 @@
 'use client';
 
 import type { NextPage } from 'next';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { AppHeader } from '@/components/shared/app-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookOpen, CalendarDays, Inbox } from 'lucide-react';
-import type { SessionData } from '@/app/study/launch/page'; // Assuming SessionData structure is defined here
+import { ArrowRight, BookOpen, CalendarDays, Inbox, Search, Clock, FileText } from 'lucide-react';
+import type { SessionData } from '@/app/study/launch/page';
+import type { TreeNode } from '@/components/study/session-sidebar';
 
-const NotesHomePage: NextPage = () => {
-  const [savedSessions, setSavedSessions] = useState<SessionData[]>([]);
+interface EnrichedSessionData extends SessionData {
+  notesCount: number;
+  actualDuration: number; // in seconds
+}
+
+interface SubjectAggregate {
+  name: string;
+  totalPlannedDuration: number; // in minutes
+  totalNotes: number;
+  lastStudiedTimestamp: number;
+  sessionCount: number;
+}
+
+function formatDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  let formatted = '';
+  if (h > 0) formatted += `${h}h `;
+  if (m > 0 || h === 0) formatted += `${m}m`;
+  return formatted.trim() || '0m';
+}
+
+function timeAgo(timestamp: number): string {
+  const now = Date.now();
+  const seconds = Math.round((now - timestamp) / 1000);
+  const minutes = Math.round(seconds / 60);
+  const hours = Math.round(minutes / 60);
+  const days = Math.round(hours / 24);
+
+  if (seconds < 60) return 'Just now';
+  if (minutes === 1) return '1 minute ago';
+  if (minutes < 60) return `${minutes} minutes ago`;
+  if (hours === 1) return '1 hour ago';
+  if (hours < 24) return `${hours} hours ago`;
+  if (days === 1) return 'Yesterday';
+  // For dates more than a day ago, show "Month Day" e.g. "Nov 28"
+  const date = new Date(timestamp);
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+
+const NotesSubjectListingPage: NextPage = () => {
+  const [subjectAggregates, setSubjectAggregates] = useState<SubjectAggregate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     setIsLoading(true);
     try {
       const sessionsIndexJSON = localStorage.getItem('learnlog-sessions-index');
-      if (sessionsIndexJSON) {
-        const sessionIds: string[] = JSON.parse(sessionsIndexJSON);
-        const sessionsData: SessionData[] = sessionIds.map(id => {
-          const sessionJSON = localStorage.getItem(`learnlog-session-${id}`);
-          return sessionJSON ? JSON.parse(sessionJSON) : null;
-        }).filter(session => session !== null) as SessionData[];
-        
-        // Sort sessions by start time, most recent first
-        sessionsData.sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
-        setSavedSessions(sessionsData);
+      if (!sessionsIndexJSON) {
+        setSubjectAggregates([]);
+        setIsLoading(false);
+        return;
       }
+      
+      const sessionIds: string[] = JSON.parse(sessionsIndexJSON);
+      const allSessionData: SessionData[] = sessionIds.map(id => {
+        const sessionJSON = localStorage.getItem(`learnlog-session-${id}`);
+        return sessionJSON ? JSON.parse(sessionJSON) : null;
+      }).filter(session => session !== null) as SessionData[];
+
+      const aggregates: Record<string, SubjectAggregate> = {};
+
+      allSessionData.forEach(session => {
+        if (!session.subject) return;
+
+        const notesContentJSON = localStorage.getItem(`learnlog-session-${session.sessionId}-notesContent`);
+        const notesCount = notesContentJSON ? Object.keys(JSON.parse(notesContentJSON)).length : 0;
+        
+        if (!aggregates[session.subject]) {
+          aggregates[session.subject] = {
+            name: session.subject,
+            totalPlannedDuration: 0,
+            totalNotes: 0,
+            lastStudiedTimestamp: 0,
+            sessionCount: 0,
+          };
+        }
+        aggregates[session.subject].totalPlannedDuration += session.duration || 0;
+        aggregates[session.subject].totalNotes += notesCount;
+        aggregates[session.subject].lastStudiedTimestamp = Math.max(aggregates[session.subject].lastStudiedTimestamp, session.startTime || 0);
+        aggregates[session.subject].sessionCount += 1;
+      });
+      
+      const sortedAggregates = Object.values(aggregates).sort((a, b) => b.lastStudiedTimestamp - a.lastStudiedTimestamp);
+      setSubjectAggregates(sortedAggregates);
+
     } catch (error) {
-      console.error("Error loading saved sessions:", error);
-      // Optionally, add a toast message here
+      console.error("Error loading or aggregating session data:", error);
     } finally {
       setIsLoading(false);
     }
@@ -41,31 +109,39 @@ const NotesHomePage: NextPage = () => {
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
       <main className="flex-1 p-6 md:p-8 overflow-y-auto custom-scrollbar">
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold font-headline text-foreground tracking-tight">
-            My Notes & Sessions
-          </h1>
-          <p className="text-lg text-muted-foreground mt-2">
-            Review your past study sessions and notes.
-          </p>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <nav className="text-sm text-muted-foreground mb-1">
+              <Link href="/" className="hover:text-primary">Home</Link>
+              {' / '}
+              <span>View Notes</span>
+            </nav>
+            <h1 className="text-3xl md:text-4xl font-bold font-headline text-foreground tracking-tight">
+              Your Study Journey
+            </h1>
+          </div>
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
+            <Search className="h-6 w-6" />
+            <span className="sr-only">Search Notes</span>
+          </Button>
         </div>
 
         {isLoading && (
           <div className="flex justify-center items-center h-64">
             <div className="minimal-spinner"></div>
-            <p className="ml-3 text-muted-foreground">Loading your sessions...</p>
+            <p className="ml-3 text-muted-foreground">Loading your study journey...</p>
           </div>
         )}
 
-        {!isLoading && savedSessions.length === 0 && (
-          <Card className="bg-card border-border shadow-lg text-center">
+        {!isLoading && subjectAggregates.length === 0 && (
+          <Card className="bg-card border-border shadow-lg text-center col-span-full">
             <CardHeader>
                 <Inbox className="h-16 w-16 text-primary mx-auto mb-4" />
-              <CardTitle className="text-2xl">No Saved Sessions Yet</CardTitle>
+              <CardTitle className="text-2xl">No Study Subjects Yet</CardTitle>
             </CardHeader>
             <CardContent>
               <CardDescription className="text-base mb-6">
-                It looks like you haven't started any study sessions. Once you do, they'll appear here for you to review.
+                Once you start study sessions, your subjects will appear here.
               </CardDescription>
               <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 <Link href="/study/launch">
@@ -77,40 +153,34 @@ const NotesHomePage: NextPage = () => {
           </Card>
         )}
 
-        {!isLoading && savedSessions.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {savedSessions.map((session) => (
-              <Card key={session.sessionId} className="bg-card border-border shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col">
-                <CardHeader className="pb-4">
-                  <div className="flex items-start justify-between">
-                    <BookOpen className="h-8 w-8 text-primary mb-2" />
+        {!isLoading && subjectAggregates.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {subjectAggregates.map((subject) => (
+              <Link key={subject.name} href={`/notes/subject/${encodeURIComponent(subject.name)}`} passHref>
+                <Card className="bg-card border-border shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 ease-out flex flex-col h-full cursor-pointer">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                       <BookOpen className="h-10 w-10 text-primary mb-3" />
+                    </div>
+                    <CardTitle className="text-2xl font-bold leading-tight truncate" title={subject.name}>
+                      {subject.name}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-grow space-y-2 text-sm">
+                    <div className="flex items-center text-muted-foreground">
+                        <Clock className="h-4 w-4 mr-2 text-primary/70" />
+                        <span>{formatDuration(subject.totalPlannedDuration)} planned study</span>
+                    </div>
+                    <div className="flex items-center text-muted-foreground">
+                        <FileText className="h-4 w-4 mr-2 text-primary/70" />
+                        <span>{subject.totalNotes} notes across {subject.sessionCount} session{subject.sessionCount === 1 ? '' : 's'}</span>
+                    </div>
+                  </CardContent>
+                  <div className="p-4 pt-2 mt-auto text-xs text-muted-foreground border-t border-border/20">
+                     Last studied: {timeAgo(subject.lastStudiedTimestamp)}
                   </div>
-                  <CardTitle className="text-xl font-semibold leading-tight truncate" title={session.subject}>
-                    {session.subject || 'Untitled Session'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex-grow">
-                  <div className="flex items-center text-sm text-muted-foreground mb-1">
-                    <CalendarDays className="h-4 w-4 mr-2" />
-                    <span>
-                      {session.startTime ? new Date(session.startTime).toLocaleDateString() : 'N/A'}
-                      {' at '}
-                      {session.startTime ? new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Duration: {session.duration ? `${session.duration} min` : 'N/A'}
-                  </p>
-                </CardContent>
-                <div className="p-4 pt-0 mt-auto">
-                    <Button asChild className="w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 hover:border-primary/50">
-                        <Link href={`/notes/${session.sessionId}/viewer`}>
-                        View Notes
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                        </Link>
-                    </Button>
-                </div>
-              </Card>
+                </Card>
+              </Link>
             ))}
           </div>
         )}
@@ -119,4 +189,4 @@ const NotesHomePage: NextPage = () => {
   );
 };
 
-export default NotesHomePage;
+export default NotesSubjectListingPage;

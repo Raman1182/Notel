@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useSettings } from '@/contexts/settings-context';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation'; // Added usePathname
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 export function AppHeader() {
   const { fontSize, setFontSize, highContrast, setHighContrast } = useSettings();
   const router = useRouter();
+  const pathname = usePathname(); // Get current path
 
   const increaseFontSize = () => setFontSize((prev) => Math.min(prev + 2, 24));
   const decreaseFontSize = () => setFontSize((prev) => Math.max(prev - 2, 12));
@@ -31,6 +32,15 @@ export function AppHeader() {
     const event = new CustomEvent('open-command-palette');
     window.dispatchEvent(event);
   };
+  
+  const navLinks = [
+    { href: '/', label: 'Dashboard', icon: Home },
+    { href: '/study/launch', label: 'New Session', icon: PlayCircle },
+    { href: '/notes', label: 'View Notes', icon: FileText },
+    // Add more main navigation links here if needed
+    // { href: '/tasks', label: 'Tasks', icon: ListChecks },
+    // { href: '/resources', label: 'Resources', icon: Briefcase },
+  ];
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/80 backdrop-blur-sm">
@@ -43,12 +53,20 @@ export function AppHeader() {
         </div>
 
         <div className="hidden md:flex items-center space-x-1">
-          <Button variant="ghost" onClick={() => router.push('/')} className="text-foreground-opacity-70 hover:text-foreground">Dashboard</Button>
-          <Button variant="ghost" onClick={() => router.push('/study/launch')} className="text-foreground-opacity-70 hover:text-foreground">
-            <PlayCircle className="mr-2 h-4 w-4" /> New Session
-          </Button>
-          <Button variant="ghost" onClick={() => router.push('/notes')} className="text-foreground-opacity-70 hover:text-foreground">Notes</Button>
-          {/* Add other main nav items here if needed */}
+          {navLinks.map(link => (
+            <Button 
+              key={link.href}
+              variant="ghost" 
+              onClick={() => router.push(link.href)} 
+              className={cn(
+                "text-foreground-opacity-70 hover:text-foreground",
+                pathname === link.href && "text-primary bg-primary/10 font-semibold"
+              )}
+            >
+              {link.icon && <link.icon className="mr-2 h-4 w-4" />}
+              {link.label}
+            </Button>
+          ))}
         </div>
 
 
@@ -135,10 +153,12 @@ export function AppHeader() {
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56 bg-popover text-popover-foreground border-border shadow-xl" align="end" forceMount>
-                <DropdownMenuItem onClick={() => router.push('/')}><Home className="mr-2 h-4 w-4" />Dashboard</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push('/study/launch')}><PlayCircle className="mr-2 h-4 w-4" />New Session</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push('/notes')}><FileText className="mr-2 h-4 w-4" />Notes</DropdownMenuItem>
-                 {/* Add other nav items for mobile */}
+                {navLinks.map(link => (
+                    <DropdownMenuItem key={`mobile-${link.href}`} onClick={() => router.push(link.href)}>
+                        {link.icon && <link.icon className="mr-2 h-4 w-4" />}
+                        {link.label}
+                    </DropdownMenuItem>
+                ))}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
