@@ -26,14 +26,24 @@ export async function getTodos(userId: string): Promise<TodoDocument[]> {
   try {
     const q = query(
       collection(db, TODOS_COLLECTION),
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc') // Order by creation date, newest first
+      where('userId', '==', userId)
+      // orderBy('createdAt', 'desc') // This requires a composite index. Removing it to sort on the client/server after fetch.
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(docSnap => ({
+    const todos = querySnapshot.docs.map(docSnap => ({
       id: docSnap.id,
-      ...docSnap.data() as TodoData,
+      ...docSnap.data(),
     })) as TodoDocument[];
+
+    // Sort todos by creation date in descending order (newest first)
+    todos.sort((a, b) => {
+      const timeA = a.createdAt?.toMillis() ?? 0;
+      const timeB = b.createdAt?.toMillis() ?? 0;
+      return timeB - timeA;
+    });
+    
+    return todos;
+    
   } catch (error) {
     console.error("Error fetching todos:", error);
     throw new Error("Failed to fetch todos.");
