@@ -7,9 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { SessionSidebar, type TreeNode, findNodeByIdRecursive } from '@/components/study/session-sidebar';
 import { FloatingTimerWidget } from '@/components/study/floating-timer-widget';
-import { Paperclip, StickyNote, Loader2, X, Brain, MessageSquare, Sparkles, FileText as FileTextIcon, AlertTriangle } from 'lucide-react';
-import type { SessionData } from '@/app/study/launch/page';
+import { Paperclip, StickyNote, Loader2, X, Brain, MessageSquare, Sparkles, FileText as FileTextIcon, AlertTriangle, Layers, History, HelpCircle } from 'lucide-react';
+import type { SessionData, TimerMode } from '@/app/study/launch/page';
 import { processText, type ProcessTextInput } from '@/ai/flows/process-text-flow';
+import { generateFlashcardsFlow, type GenerateFlashcardsInput, type GenerateFlashcardsOutput } from '@/ai/flows/generate-flashcards-flow';
+import { generateQuizFlow, type GenerateQuizInput, type GenerateQuizOutput } from '@/ai/flows/generate-quiz-flow';
+
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -20,7 +23,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import Link from 'next/link';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -79,6 +84,9 @@ function StudySessionPageContent() {
 
   const [showAiButtons, setShowAiButtons] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [aiGeneratedContent, setAiGeneratedContent] = useState<string | null>(null);
+  const [aiGeneratedContentType, setAiGeneratedContentType] = useState<'flashcards' | 'quiz' | null>(null);
+
 
   const [sessionTime, setSessionTime] = useState(0); // in seconds
   const [isSessionRunning, setIsSessionRunning] = useState(true);
@@ -86,6 +94,8 @@ function StudySessionPageContent() {
   const [notebookTitle, setNotebookTitle] = useState('');
   const [showEndSessionDialog, setShowEndSessionDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [timerMode, setTimerMode] = useState<TimerMode>('normal');
+  const [pomodoroCycle, setPomodoroCycle] = useState<{ workMinutes: number; breakMinutes: number } | undefined>(undefined);
 
 
   // Load session data, tree, notes, and PDF attachment info from localStorage
@@ -103,7 +113,9 @@ function StudySessionPageContent() {
         const parsedSessionData: SessionData = JSON.parse(storedSessionDataJSON);
         setSessionData(parsedSessionData);
         setNotebookTitle(parsedSessionData.subject); 
-        localStorage.setItem('learnlog-lastActiveSubject', parsedSessionData.subject); // Save for AI Assistant context
+        setTimerMode(parsedSessionData.timerMode || 'normal');
+        setPomodoroCycle(parsedSessionData.pomodoroCycle);
+        localStorage.setItem('learnlog-lastActiveSubject', parsedSessionData.subject); 
 
         const storedTreeJSON = localStorage.getItem(`learnlog-session-${sessionId}-tree`);
         const defaultRootNode: TreeNode = { id: 'root', name: parsedSessionData.subject, type: 'subject', children: [], parentId: null };
@@ -144,11 +156,6 @@ function StudySessionPageContent() {
         
         const savedRunning = localStorage.getItem(`learnlog-session-${sessionId}-running`);
         setIsSessionRunning(savedRunning === 'true');
-
-        const attachedPdfName = localStorage.getItem(`learnlog-session-${sessionId}-pdfName`);
-        if (attachedPdfName) {
-          // PDF name remembered, but content needs re-selection.
-        }
 
       } else {
         setError(`Session data not found for ID: ${sessionId}. It might have been deleted or never existed.`);
@@ -234,18 +241,18 @@ function StudySessionPageContent() {
 
     const storedSessionDataJSON = localStorage.getItem(`learnlog-session-${sessionId}`);
     if (storedSessionDataJSON) {
-        const parsedSessionData: SessionData = JSON.parse(storedSessionDataJSON);
+        let parsedSessionData: SessionData = JSON.parse(storedSessionDataJSON);
         const actualDurationMinutes = Math.floor(sessionTime / 60); 
-        parsedSessionData.duration = actualDurationMinutes; // Save actual duration
+        parsedSessionData = {...parsedSessionData, duration: actualDurationMinutes}; // Save actual duration
         localStorage.setItem(`learnlog-session-${sessionId}`, JSON.stringify(parsedSessionData));
     }
 
     localStorage.setItem(`learnlog-session-${sessionId}-timer`, sessionTime.toString());
     localStorage.setItem(`learnlog-session-${sessionId}-running`, 'false');
-    localStorage.removeItem('learnlog-lastActiveSubject'); // Clear last active subject
+    localStorage.removeItem('learnlog-lastActiveSubject'); 
 
     setShowEndSessionDialog(false);
-    toast({ title: "Session Ended", description: `${notebookTitle} session saved successfully. Total time: ${Math.floor(sessionTime/60)}m ${sessionTime%60}s.`});
+    toast({ title: "Session Ended", description: `${notebookTitle} session saved. Actual time: ${Math.floor(sessionTime/60)}m ${sessionTime%60}s.`});
     router.push('/');
   };
   
@@ -349,6 +356,45 @@ function StudySessionPageContent() {
     }
   };
 
+  const handleGenerateFlashcards = async () => {
+    if (!activeNoteId || !currentNoteContent.trim()) {
+      toast({ title: "Info", description: "Select a note with content to generate flashcards.", variant: "default" });
+      return;
+    }
+    setIsAiProcessing(true);
+    try {
+      const input: GenerateFlashcardsInput = { noteContent: currentNoteContent, subject: notebookTitle };
+      const result = await generateFlashcardsFlow(input);
+      setAiGeneratedContent(JSON.stringify(result.flashcards, null, 2));
+      setAiGeneratedContentType('flashcards');
+      toast({ title: "Flashcards Generated", description: "AI has created flashcards from your note." });
+    } catch (error) {
+      toast({ title: "Flashcard Generation Error", description: error instanceof Error ? error.message : "Could not generate flashcards.", variant: "destructive"});
+    } finally {
+      setIsAiProcessing(false);
+    }
+  };
+
+  const handleGenerateQuiz = async () => {
+     if (!activeNoteId || !currentNoteContent.trim()) {
+      toast({ title: "Info", description: "Select a note with content to generate a quiz.", variant: "default" });
+      return;
+    }
+    setIsAiProcessing(true);
+    try {
+      const input: GenerateQuizInput = { noteContent: currentNoteContent, subject: notebookTitle, numQuestions: 5 };
+      const result = await generateQuizFlow(input);
+      setAiGeneratedContent(JSON.stringify(result.questions, null, 2));
+      setAiGeneratedContentType('quiz');
+      toast({ title: "Quiz Generated", description: "AI has created a quiz from your note." });
+    } catch (error) {
+      toast({ title: "Quiz Generation Error", description: error instanceof Error ? error.message : "Could not generate quiz.", variant: "destructive"});
+    } finally {
+      setIsAiProcessing(false);
+    }
+  };
+
+
   const handleOpenPdfSelector = () => {
     pdfInputRef.current?.click();
   };
@@ -393,7 +439,7 @@ function StudySessionPageContent() {
     if (sessionsIndexJSON) {
         const allIds: string[] = JSON.parse(sessionsIndexJSON);
         const otherSessionsData = allIds
-            .filter(id => id !== sessionId) // Exclude current session
+            .filter(id => id !== sessionId) 
             .map(id => {
                 const sessionJSON = localStorage.getItem(`learnlog-session-${id}`);
                 return sessionJSON ? JSON.parse(sessionJSON) as SessionData : null;
@@ -470,6 +516,23 @@ function StudySessionPageContent() {
         </AlertDialogContent>
       </AlertDialog>
 
+       <Dialog open={!!aiGeneratedContent} onOpenChange={(open) => { if (!open) { setAiGeneratedContent(null); setAiGeneratedContentType(null);}}}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>AI Generated {aiGeneratedContentType === 'flashcards' ? 'Flashcards' : 'Quiz'}</DialogTitle>
+            <DialogDescription>
+              Here's what the AI generated from your note. You can copy this content.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] mt-4 p-1">
+            <pre className="text-xs bg-muted p-3 rounded-md whitespace-pre-wrap break-words custom-scrollbar">
+              <code>{aiGeneratedContent}</code>
+            </pre>
+          </ScrollArea>
+           <Button onClick={() => { setAiGeneratedContent(null); setAiGeneratedContentType(null); }} className="mt-4">Close</Button>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex flex-1 overflow-hidden">
         <SessionSidebar 
           sessionSubject={notebookTitle} 
@@ -482,17 +545,17 @@ function StudySessionPageContent() {
         <main className="flex-1 flex flex-col p-4 md:p-6 overflow-y-auto relative custom-scrollbar bg-[#0A0A0A]">
           
           <div className="flex items-center justify-between mb-4">
-            <div className="text-sm text-muted-foreground truncate max-w-[calc(100%-250px)]">
+            <div className="text-sm text-muted-foreground truncate max-w-[calc(100%-300px)]">
                 {notebookTitle} {activeNoteId && currentActiveNode ? `/ ${currentActiveNode.name}` : ''}
             </div>
             <div className="flex items-center space-x-2 shrink-0">
                 <Button variant="outline" size="sm" onClick={handleOpenPdfSelector} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
                 <Paperclip className="h-4 w-4 mr-2" />
-                Add PDF
+                PDF
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleOpenPreviousNotes} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
-                <StickyNote className="h-4 w-4 mr-2" />
-                Previous Notes
+                <History className="h-4 w-4 mr-2" /> {/* Changed icon */}
+                Prev. Notes
                 </Button>
             </div>
           </div>
@@ -508,21 +571,28 @@ function StudySessionPageContent() {
                 value={isEditorActive ? currentNoteContent : ''}
                 onChange={handleTextareaChange}
                 onFocus={() => setShowAiButtons(isEditorActive)}
-                onBlur={() => setTimeout(() => { if (!isAiProcessing) setShowAiButtons(false); }, 200)}
+                onBlur={() => setTimeout(() => { if (!isAiProcessing && !aiGeneratedContent) setShowAiButtons(false); }, 200)}
                 disabled={!isEditorActive || isAiProcessing}
               />
               {isEditorActive && (
                 <div 
-                    className={`flex items-center justify-end space-x-2 p-2 border-t border-white/10 rounded-b-md transition-opacity duration-200 ${showAiButtons || isAiProcessing ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                    className={`flex items-center justify-end space-x-2 p-2 border-t border-white/10 rounded-b-md transition-opacity duration-200 
+                                ${showAiButtons || isAiProcessing || aiGeneratedContent ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 >
-                  <Button size="sm" variant="ghost" className="bg-primary/10 hover:bg-primary/20 text-primary text-xs p-1.5 px-2 disabled:opacity-50" onClick={() => handleAiAction('explain')} disabled={isAiProcessing || !currentNoteContent.trim()}>
+                  <Button size="sm" variant="ghost" className="text-xs p-1.5 px-2 disabled:opacity-50 bg-primary/10 hover:bg-primary/20 text-primary" onClick={() => handleAiAction('explain')} disabled={isAiProcessing || !currentNoteContent.trim()}>
                     {isAiProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Brain className="h-3 w-3 mr-1" />} Explain
                   </Button>
-                  <Button size="sm" variant="ghost" className="bg-primary/10 hover:bg-primary/20 text-primary text-xs p-1.5 px-2 disabled:opacity-50" onClick={() => handleAiAction('summarize')} disabled={isAiProcessing || !currentNoteContent.trim()}>
+                  <Button size="sm" variant="ghost" className="text-xs p-1.5 px-2 disabled:opacity-50 bg-primary/10 hover:bg-primary/20 text-primary" onClick={() => handleAiAction('summarize')} disabled={isAiProcessing || !currentNoteContent.trim()}>
                     {isAiProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <MessageSquare className="h-3 w-3 mr-1" />} Summarize
                   </Button>
-                  <Button size="sm" variant="ghost" className="bg-primary/10 hover:bg-primary/20 text-primary text-xs p-1.5 px-2 disabled:opacity-50" onClick={() => handleAiAction('expand')} disabled={isAiProcessing || !currentNoteContent.trim()}>
+                  <Button size="sm" variant="ghost" className="text-xs p-1.5 px-2 disabled:opacity-50 bg-primary/10 hover:bg-primary/20 text-primary" onClick={() => handleAiAction('expand')} disabled={isAiProcessing || !currentNoteContent.trim()}>
                     {isAiProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />} Expand
+                  </Button>
+                   <Button size="sm" variant="ghost" className="text-xs p-1.5 px-2 disabled:opacity-50 bg-green-500/10 hover:bg-green-500/20 text-green-400" onClick={handleGenerateFlashcards} disabled={isAiProcessing || !currentNoteContent.trim()}>
+                    {isAiProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Layers className="h-3 w-3 mr-1" />} Flashcards
+                  </Button>
+                   <Button size="sm" variant="ghost" className="text-xs p-1.5 px-2 disabled:opacity-50 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400" onClick={handleGenerateQuiz} disabled={isAiProcessing || !currentNoteContent.trim()}>
+                    {isAiProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <HelpCircle className="h-3 w-3 mr-1" />} Quiz
                   </Button>
                 </div>
               )}
@@ -571,7 +641,7 @@ function StudySessionPageContent() {
                       {selectedPreviousSessionIdForReference && (
                          <div className="mt-4 p-3 border-t border-border/20 text-center text-muted-foreground text-xs">
                             Viewing details for the selected session is not yet implemented here.
-                            You can <Link href={`/notes/${selectedPreviousSessionIdForReference}/viewer`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">open it in a new tab</Link>.
+                            You can <Link href={`/notes/${selectedPreviousSessionIdForReference}/viewer?subject=${encodeURIComponent(allSessionsForReference.find(s=>s.sessionId === selectedPreviousSessionIdForReference)?.subject || '')}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">open it in a new tab</Link>.
                          </div>
                       )}
                     </ScrollArea>
@@ -594,6 +664,8 @@ function StudySessionPageContent() {
           isRunning={isSessionRunning}
           onTogglePlayPause={toggleSessionRunning}
           onEndSession={handleAttemptEndSession}
+          timerMode={timerMode}
+          pomodoroCycle={pomodoroCycle}
       />
     </div>
   );

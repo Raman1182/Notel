@@ -1,14 +1,14 @@
 
 'use client';
 
-import { Cog, Menu, Minus, Plus, Sparkles, Home, BookOpen, FileText, ListChecks, Briefcase, MessageCircle, Target, Settings as SettingsIcon, Flame, Search, PlayCircle } from 'lucide-react';
+import { Cog, Menu, Minus, Plus, Sparkles, Home, BookOpen, FileText, ListChecks, Briefcase, MessageCircle, Target, Settings as SettingsIcon, Flame, Search, PlayCircle, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useSettings } from '@/contexts/settings-context';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation'; // Added usePathname
+import { usePathname, useRouter } from 'next/navigation'; 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 export function AppHeader() {
   const { fontSize, setFontSize, highContrast, setHighContrast } = useSettings();
   const router = useRouter();
-  const pathname = usePathname(); // Get current path
+  const pathname = usePathname(); 
 
   const increaseFontSize = () => setFontSize((prev) => Math.min(prev + 2, 24));
   const decreaseFontSize = () => setFontSize((prev) => Math.max(prev - 2, 12));
@@ -37,9 +37,7 @@ export function AppHeader() {
     { href: '/', label: 'Dashboard', icon: Home },
     { href: '/study/launch', label: 'New Session', icon: PlayCircle },
     { href: '/notes', label: 'View Notes', icon: FileText },
-    // Add more main navigation links here if needed
-    // { href: '/tasks', label: 'Tasks', icon: ListChecks },
-    // { href: '/resources', label: 'Resources', icon: Briefcase },
+    { href: '/calendar', label: 'Calendar', icon: CalendarClock },
   ];
 
   return (

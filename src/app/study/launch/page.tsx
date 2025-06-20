@@ -8,8 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AppHeader } from '@/components/shared/app-header';
-import { Sparkles, Target, Edit3, Clock, Music2, Play, BookOpen, BarChart3, Flame, Loader2 } from 'lucide-react';
+import { Sparkles, Target, Edit3, Clock, Music2, Play, BookOpen, BarChart3, Flame, Loader2, RadioTower } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 const recentSubjectsData = [
   { name: 'Physics', icon: <BookOpen className="h-4 w-4 mr-2" /> },
@@ -18,9 +20,9 @@ const recentSubjectsData = [
 ];
 
 const durationOptionsData = [
-  { label: '25 min', value: 25, description: 'Pomodoro Sprint' },
-  { label: '45 min', value: 45, description: 'Standard Study' },
-  { label: '60 min', value: 60, description: 'Deep Work' },
+  { label: '25 min', value: 25, description: 'Standard Focus' }, // Changed Pomodoro to Standard
+  { label: '45 min', value: 45, description: 'Deep Work Block' },
+  { label: '60 min', value: 60, description: 'Extended Study' },
 ];
 
 const ambientSoundsData = [
@@ -30,19 +32,24 @@ const ambientSoundsData = [
   { name: 'Library', icon: <Music2 className="h-4 w-4 mr-2" /> },
 ];
 
+export type TimerMode = 'normal' | 'pomodoro_25_5'; // 25 min work, 5 min break
+
 export interface SessionData {
   sessionId: string;
   subject: string;
-  duration: number; // in minutes
+  duration: number; // in minutes (this will be the work duration for pomodoro)
   ambientSound: string;
   startTime: number; // timestamp
+  timerMode: TimerMode;
+  pomodoroCycle?: { workMinutes: number; breakMinutes: number }; // Optional, for pomodoro
 }
 
 const StudySessionLauncherPage: NextPage = () => {
   const router = useRouter();
   const [subject, setSubject] = useState('');
-  const [selectedDuration, setSelectedDuration] = useState<number>(25); // Default to 25 min
+  const [selectedDuration, setSelectedDuration] = useState<number>(25); 
   const [selectedSound, setSelectedSound] = useState<string>('None');
+  const [timerMode, setTimerMode] = useState<TimerMode>('normal');
   const [greeting, setGreeting] = useState("Ready to Start Your Study Session?");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -65,10 +72,17 @@ const StudySessionLauncherPage: NextPage = () => {
     const sessionData: SessionData = {
       sessionId,
       subject: sessionSubject,
-      duration: selectedDuration,
+      duration: selectedDuration, 
       ambientSound: selectedSound,
       startTime: Date.now(),
+      timerMode: timerMode,
     };
+
+    if (timerMode === 'pomodoro_25_5') {
+      sessionData.pomodoroCycle = { workMinutes: 25, breakMinutes: 5 };
+      sessionData.duration = 25; // Default work cycle for Pomodoro starts with 25
+    }
+
 
     try {
       localStorage.setItem(`learnlog-session-${sessionId}`, JSON.stringify(sessionData));
@@ -78,7 +92,6 @@ const StudySessionLauncherPage: NextPage = () => {
       sessionsIndex = [sessionId, ...sessionsIndex.filter(id => id !== sessionId)].slice(0, 10); 
       localStorage.setItem('learnlog-sessions-index', JSON.stringify(sessionsIndex));
       
-      // Initialize tree structure for the session
       const initialTree = [
         { 
           id: 'root', 
@@ -131,7 +144,7 @@ const StudySessionLauncherPage: NextPage = () => {
           <h1 className="text-3xl md:text-4xl font-bold font-headline text-foreground tracking-tight">
             {greeting}
           </h1>
-          <p className="text-foreground-opacity-70 mt-2">Current Streak: <span className="text-warning font-semibold">5 days</span> 🔥</p>
+          <p className="text-foreground-opacity-70 mt-2">Launch your next focused learning period.</p>
         </div>
 
         <CardWrapper title="What are you studying?" icon={<Edit3 className="h-5 w-5 mr-2 text-primary" />}>
@@ -158,14 +171,33 @@ const StudySessionLauncherPage: NextPage = () => {
                   {item.icon} {item.name}
                 </Button>
               ))}
-              <Button variant="outline" size="sm" onClick={() => setSubject('')} className="bg-white/10 border-white/20 hover:bg-primary/20 text-foreground-opacity-70 hover:text-foreground" disabled={isLoading}>
-                <Sparkles className="h-4 w-4 mr-1 text-xs" /> New
-              </Button>
             </div>
           </div>
         </CardWrapper>
 
+        <CardWrapper title="Timer Mode" icon={<RadioTower className="h-5 w-5 mr-2 text-primary" />}>
+          <RadioGroup 
+            defaultValue="normal" 
+            onValueChange={(value: TimerMode) => setTimerMode(value)} 
+            className="flex space-x-4"
+            disabled={isLoading}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="normal" id="mode-normal" />
+              <Label htmlFor="mode-normal" className="font-normal text-base">Normal</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="pomodoro_25_5" id="mode-pomodoro" />
+              <Label htmlFor="mode-pomodoro" className="font-normal text-base">Pomodoro (25/5)</Label>
+            </div>
+          </RadioGroup>
+        </CardWrapper>
+
+
         <CardWrapper title="Session Duration" icon={<Clock className="h-5 w-5 mr-2 text-primary" />}>
+          <p className="text-xs text-muted-foreground mb-2 -mt-1">
+            {timerMode === 'pomodoro_25_5' ? 'Set initial work cycle duration. Default is 25 min.' : 'Set total session duration.'}
+          </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {durationOptionsData.map((opt) => (
               <Button
@@ -183,18 +215,19 @@ const StudySessionLauncherPage: NextPage = () => {
                 <span className="text-xs opacity-80">{opt.description}</span>
               </Button>
             ))}
-            <Button
-              variant={selectedDuration === 0 ? 'default' : 'outline'} 
-              onClick={() => setSelectedDuration(0)} 
+             <Button // Custom duration button - might not be ideal for Pomodoro initial cycle
+              variant={![25,45,60].includes(selectedDuration) ? 'default' : 'outline'}
+              onClick={() => setSelectedDuration(0)} // 0 could signify custom input later
               className={cn(
                 "flex flex-col h-auto py-2 border-white/20",
-                selectedDuration !== 0 && "bg-white/10 hover:bg-primary/20 text-foreground-opacity-70 hover:text-foreground",
-                selectedDuration === 0 && "bg-primary text-primary-foreground hover:bg-primary/90"
+                [25,45,60].includes(selectedDuration) && "bg-white/10 hover:bg-primary/20 text-foreground-opacity-70 hover:text-foreground",
+                ![25,45,60].includes(selectedDuration) && "bg-primary text-primary-foreground hover:bg-primary/90"
               )}
               disabled={isLoading}
+              title="Set custom duration (not fully implemented for this mode)"
             >
               <span className="text-lg font-semibold">Custom</span>
-              <span className="text-xs opacity-80">Set your own</span>
+              <span className="text-xs opacity-80">Enter time</span>
             </Button>
           </div>
         </CardWrapper>
@@ -228,20 +261,6 @@ const StudySessionLauncherPage: NextPage = () => {
           {isLoading ? <Loader2 className="h-6 w-6 animate-spin mr-2" /> : <Play className="h-6 w-6 mr-2 transform transition-transform group-hover:scale-110" />}
           {isLoading ? "Starting..." : "Start Session"}
         </Button>
-
-        <div className="w-full max-w-4xl mt-10 pt-6 border-t border-white/10 flex flex-col md:flex-row justify-between text-sm text-foreground-opacity-70">
-          <div className="mb-4 md:mb-0">
-            <h4 className="font-semibold text-foreground/80 mb-2 flex items-center"><BarChart3 className="h-5 w-5 mr-2 text-primary/70"/>Recent Sessions</h4>
-            <ul className="space-y-1 list-disc list-inside pl-1">
-              <li>Physics - Quantum Mechanics (2 hours ago)</li>
-              <li>Mathematics - Calculus (Yesterday)</li>
-            </ul>
-          </div>
-          <div className="text-center md:text-right">
-              <Flame className="h-6 w-6 text-warning inline-block mr-1" />
-              <span className="font-semibold text-foreground/80">Current Streak: 5 days</span>
-          </div>
-        </div>
       </main>
     </div>
   );
