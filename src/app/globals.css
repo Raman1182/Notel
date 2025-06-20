@@ -86,7 +86,7 @@ body {
 
   /* Specific background for Study page elements, if needed globally, otherwise apply directly */
   /* For instance, if .study-page-bg is added to body for study page route */
-  /* .dark .study-page-bg { --background: 0 0% 3.9%; /* #0A0A0A (approx) */ } */
+  /* .dark .study-page-bg { --background: 0 0% 3.9%; } */ /* Corrected nested comment */
   /* .dark .study-sidebar-bg { background-color: #0F0F0F; } */
 
 
