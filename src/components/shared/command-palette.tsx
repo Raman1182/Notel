@@ -3,7 +3,7 @@
 
 import * as React from 'react'; 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'; // Added DialogTitle
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { commandPaletteActions, type CommandAction } from '@/config/command-palette-actions';
 import { useRouter } from 'next/navigation';
@@ -38,7 +38,6 @@ export function CommandPalette() {
       setIsOpen(true);
       setSearchTerm('');
       setSelectedIndex(0);
-      // Reset AI states
       setAiSuggestions([]);
       setAiResponse(null);
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -69,28 +68,66 @@ export function CommandPalette() {
     return () => document.removeEventListener('keydown', down);
   }, []);
 
-  // Load recent items from localStorage
+  // Load and rehydrate recent items from localStorage
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedRecents = localStorage.getItem('learnlog-recent-cmd-items');
-      if (storedRecents) {
-        setRecentItems(JSON.parse(storedRecents));
+    if (typeof window !== 'undefined' && isOpen) { // Load/rehydrate only when palette opens
+      const storedRecentsJSON = localStorage.getItem('learnlog-recent-cmd-items');
+      if (storedRecentsJSON) {
+        try {
+          // Parse items; icon property will be undefined/null if it was a function
+          const parsedStoredRecents: Array<Omit<RecentItem, 'icon' | 'perform'> & { icon?: any, perform?: any, timestamp: number }> = JSON.parse(storedRecentsJSON);
+          
+          const rehydratedRecents = parsedStoredRecents.map(storedItem => {
+            const originalAction = commandPaletteActions.find(cmd => cmd.id === storedItem.id);
+            
+            if (!originalAction) return null; // Should not happen if IDs are consistent
+
+            return {
+              // Start with all properties from the original action definition
+              ...originalAction,
+              // Override with the timestamp from storage
+              timestamp: storedItem.timestamp,
+              // Ensure crucial properties like id, name, section, href come from original if they somehow differ
+              // though storedItem should be sufficient for these if addRecentItem is robust.
+              // We are primarily concerned with rehydrating `icon` and `perform`.
+              id: originalAction.id,
+              name: originalAction.name,
+              section: originalAction.section,
+              keywords: originalAction.keywords,
+              href: originalAction.href,
+              icon: originalAction.icon, // Re-assign the icon component
+              perform: originalAction.perform, // Re-assign the perform function
+            } as RecentItem;
+          }).filter(item => item !== null) as RecentItem[]; // Filter out nulls and cast
+          
+          setRecentItems(rehydratedRecents.sort((a, b) => b.timestamp - a.timestamp));
+        } catch (e) {
+          console.error("Failed to parse or rehydrate recent items from localStorage", e);
+          localStorage.removeItem('learnlog-recent-cmd-items'); // Clear corrupted data
+          setRecentItems([]); // Reset to empty
+        }
+      } else {
+        setRecentItems([]); // No items in storage
       }
     }
   }, [isOpen]);
 
-  const addRecentItem = (action: CommandAction) => {
+
+  const addRecentItem = useCallback((action: CommandAction) => {
     setRecentItems(prev => {
       const newRecents = [
         { ...action, timestamp: Date.now() },
         ...prev.filter(item => item.id !== action.id)
-      ].slice(0, 5); // Keep last 5
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('learnlog-recent-cmd-items', JSON.stringify(newRecents));
-      }
+      ]
+      .sort((a, b) => b.timestamp - a.timestamp) // Keep sorted by most recent
+      .slice(0, 5); // Keep last 5
+
+      // When stringifying, function properties (icon, perform) are omitted by default.
+      // This is fine, as we rehydrate them on load.
+      localStorage.setItem('learnlog-recent-cmd-items', JSON.stringify(newRecents));
       return newRecents;
     });
-  };
+  }, []);
 
   // AI Search Debounce
   useEffect(() => {
@@ -107,6 +144,7 @@ export function CommandPalette() {
         const input: SmartSearchInput = { query: searchTerm, currentPage: window.location.pathname };
         const result: SmartSearchOutput = await smartSearchFlow(input);
         
+        // AI suggestions don't have icons from the flow, this is handled by action.icon being undefined
         setAiSuggestions(result.suggestedActions || []);
         setAiResponse(result.aiResponse || null);
 
@@ -122,7 +160,7 @@ export function CommandPalette() {
       } finally {
         setIsLoadingAi(false);
       }
-    }, 500); // 500ms debounce
+    }, 500);
 
     return () => {
       clearTimeout(handler);
@@ -134,20 +172,20 @@ export function CommandPalette() {
   useEffect(() => {
     const lowerSearchTerm = searchTerm.toLowerCase();
     if (!lowerSearchTerm) {
-      // Show some default commands or group by section initially
       const initialCommands = commandPaletteActions.filter(action => 
-        ['Navigation', 'App'].includes(action.section) // Show some common sections by default
+        ['Navigation', 'App'].includes(action.section)
       ).slice(0,5);
       setQuickCommands(initialCommands);
+      setSelectedIndex(0);
       return;
     }
     
     const results = commandPaletteActions.filter(action =>
       action.name.toLowerCase().includes(lowerSearchTerm) ||
       (action.keywords && action.keywords.some(keyword => keyword.toLowerCase().includes(lowerSearchTerm)))
-    ).slice(0, 10); // Limit results
+    ).slice(0, 10);
     setQuickCommands(results);
-    setSelectedIndex(0); // Reset index when commands change
+    setSelectedIndex(0);
   }, [searchTerm]);
 
 
@@ -159,7 +197,7 @@ export function CommandPalette() {
       action.perform();
     }
     setIsOpen(false);
-  }, [router]);
+  }, [router, addRecentItem]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -192,12 +230,12 @@ export function CommandPalette() {
 
   if (!isOpen) return null;
 
-  const renderSection = (title: string, icon: React.ElementType, items: CommandAction[], isLoading?: boolean, emptyText?: string) => {
+  const renderSection = (title: string, iconElement: React.ElementType, items: CommandAction[], isLoading?: boolean, emptyText?: string) => {
     if (isLoading) {
       return (
         <div className="px-3 py-2">
           <div className="flex items-center text-xs font-semibold text-muted-foreground tracking-wider mb-2">
-            {React.createElement(icon, { className: "h-4 w-4 mr-2 animate-pulse-subtle" })}
+            {React.createElement(iconElement, { className: "h-4 w-4 mr-2 animate-pulse-subtle" })}
             {title}
           </div>
           <div className="p-4 text-center text-sm text-muted-foreground">
@@ -212,7 +250,7 @@ export function CommandPalette() {
          return (
             <div className="px-3 py-2">
                 <div className="flex items-center text-xs font-semibold text-muted-foreground tracking-wider mb-2">
-                    {React.createElement(icon, { className: "h-4 w-4 mr-2" })}
+                    {React.createElement(iconElement, { className: "h-4 w-4 mr-2" })}
                     {title}
                 </div>
             </div>
@@ -224,19 +262,25 @@ export function CommandPalette() {
     return (
       <div className="px-1 py-2">
         <div className="flex items-center px-3 text-xs font-semibold text-muted-foreground tracking-wider mb-1">
-          {React.createElement(icon, { className: "h-4 w-4 mr-2" })}
+          {React.createElement(iconElement, { className: "h-4 w-4 mr-2" })}
           {title}
         </div>
-        {items.map((action, index) => {
+        {items.map((action, itemIndex) => {
           let globalIndex = 0;
-          if (items === aiSuggestions) globalIndex = index;
-          else if (items === recentItems) globalIndex = aiSuggestions.length + index;
-          else if (items === quickCommands) globalIndex = aiSuggestions.length + recentItems.length + index;
+          // Calculate globalIndex based on which section this item belongs to.
+          // This logic assumes aiSuggestions, recentItems, quickCommands are the only sources for allFilteredActions.
+          // And they appear in that order.
+          const aiSuggestionsLength = aiSuggestions?.length || 0;
+          const recentItemsLength = recentItems?.length || 0;
+
+          if (items === aiSuggestions) globalIndex = itemIndex;
+          else if (items === recentItems) globalIndex = aiSuggestionsLength + itemIndex;
+          else if (items === quickCommands) globalIndex = aiSuggestionsLength + recentItemsLength + itemIndex;
           
-          const ActionIcon = action.icon;
+          const ActionIcon = action.icon; // This should now be a valid LucideIcon or undefined
           return (
             <button
-              key={action.id + '-' + index} 
+              key={action.id + '-' + title + '-' + itemIndex} 
               id={`action-item-${globalIndex}`}
               onClick={() => handleAction(action)}
               className={`w-full text-left flex items-center gap-3 p-2.5 mx-1 rounded-md transition-colors duration-100 ease-in-out
@@ -244,7 +288,7 @@ export function CommandPalette() {
               aria-selected={globalIndex === selectedIndex}
               role="option"
             >
-              {ActionIcon && <ActionIcon className="h-5 w-5 text-muted-foreground group-hover:text-primary-foreground flex-shrink-0" />}
+              {ActionIcon && typeof ActionIcon === 'function' && <ActionIcon className="h-5 w-5 text-muted-foreground group-hover:text-primary-foreground flex-shrink-0" />}
               <span className="flex-1 text-sm truncate">{action.name}</span>
               {action.href && <span className="text-xs text-muted-foreground">Navigate</span>}
             </button>
@@ -302,3 +346,4 @@ export function CommandPalette() {
     </Dialog>
   );
 }
+
