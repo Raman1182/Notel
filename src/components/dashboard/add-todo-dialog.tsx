@@ -20,7 +20,7 @@ import type { Todo } from './todo-item';
 interface AddTodoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddTodo: (newTodo: Omit<Todo, 'id' | 'completed'>) => void;
+  onAddTodo: (newTodoData: Omit<Todo, 'id' | 'completed'>) => void; // Changed prop name for clarity
 }
 
 export function AddTodoDialog({ open, onOpenChange, onAddTodo }: AddTodoDialogProps) {
@@ -33,6 +33,7 @@ export function AddTodoDialog({ open, onOpenChange, onAddTodo }: AddTodoDialogPr
       alert("Please enter a title for your to-do.");
       return;
     }
+    // Pass only the data needed to create a new todo, ID and completed are handled by the service/parent
     onAddTodo({ title: title.trim(), importance });
     setTitle('');
     setImportance('medium');

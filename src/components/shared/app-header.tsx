@@ -1,12 +1,13 @@
 
 'use client';
 
-import { Cog, Menu, Minus, Plus, Sparkles, Home, BookOpen, FileText, ListChecks, Briefcase, MessageCircle, Target, Settings as SettingsIcon, Flame, Search, PlayCircle, CalendarClock } from 'lucide-react';
+import { Cog, Menu, Minus, Plus, Sparkles, Home, BookOpen, FileText, ListChecks, Briefcase, MessageCircle, Target, Settings as SettingsIcon, Flame, Search, PlayCircle, CalendarClock, LogOut, User as UserIcon, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useSettings } from '@/contexts/settings-context';
+import { useAuth } from '@/contexts/auth-context'; // Import useAuth
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation'; 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -22,6 +23,7 @@ import { cn } from '@/lib/utils';
 
 export function AppHeader() {
   const { fontSize, setFontSize, highContrast, setHighContrast } = useSettings();
+  const { user, signInWithGoogle, signOut, loading } = useAuth(); // Get auth state and functions
   const router = useRouter();
   const pathname = usePathname(); 
 
@@ -79,68 +81,80 @@ export function AppHeader() {
             <Search className="h-5 w-5 text-primary group-hover:text-primary transition-colors" />
           </Button>
           
-           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                <Avatar className="h-9 w-9">
-                  <AvatarImage src="https://placehold.co/40x40.png" alt="User avatar" data-ai-hint="person minimalist" />
-                  <AvatarFallback>JD</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-64 bg-popover text-popover-foreground border-border shadow-xl" align="end" forceMount>
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">John Doe</p>
-                  <p className="text-xs leading-none text-muted-foreground">
-                    john.doe@example.com
-                  </p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="flex items-center">
-                <Flame className="mr-2 h-4 w-4 text-warning" />
-                Study Streak: 7 days
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-               <Popover>
-                <PopoverTrigger asChild>
-                    <div className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
-                        <Cog className="mr-2 h-4 w-4" /> App Display
-                    </div>
-                </PopoverTrigger>
-                <PopoverContent className="w-72 p-4 space-y-4 bg-popover text-popover-foreground rounded-xl shadow-xl border-border ml-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="font-size" className="text-sm font-medium">Font Size</Label>
-                    <div className="flex items-center space-x-2">
-                      <Button variant="outline" size="icon" onClick={decreaseFontSize} aria-label="Decrease font size">
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                      <span className="w-10 text-center text-sm tabular-nums">{fontSize}px</span>
-                      <Button variant="outline" size="icon" onClick={increaseFontSize} aria-label="Increase font size">
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
+          {!loading && user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={user.photoURL || `https://placehold.co/40x40.png?text=${user.displayName?.charAt(0) || 'U'}`} alt={user.displayName || "User avatar"} data-ai-hint="person minimalist" />
+                    <AvatarFallback>{user.displayName ? user.displayName.charAt(0).toUpperCase() : <UserIcon className="h-5 w-5"/>}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-64 bg-popover text-popover-foreground border-border shadow-xl" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{user.displayName || "User"}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user.email || "No email"}
+                    </p>
                   </div>
-                  <div className="flex items-center justify-between space-x-2">
-                    <Label htmlFor="high-contrast" className="text-sm font-medium">High Contrast</Label>
-                    <Switch
-                      id="high-contrast"
-                      checked={highContrast}
-                      onCheckedChange={setHighContrast}
-                      aria-label="Toggle high contrast mode"
-                    />
-                  </div>
-                </PopoverContent>
-              </Popover>
-              <DropdownMenuItem asChild>
-                <Link href="/settings" className="w-full flex items-center">
-                  <SettingsIcon className="mr-2 h-4 w-4" />
-                  More Settings
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="flex items-center cursor-pointer">
+                  <Flame className="mr-2 h-4 w-4 text-warning" />
+                  Study Streak: (Coming Soon)
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <Popover>
+                  <PopoverTrigger asChild>
+                      <div className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
+                          <Cog className="mr-2 h-4 w-4" /> App Display
+                      </div>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-4 space-y-4 bg-popover text-popover-foreground rounded-xl shadow-xl border-border ml-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="font-size" className="text-sm font-medium">Font Size</Label>
+                      <div className="flex items-center space-x-2">
+                        <Button variant="outline" size="icon" onClick={decreaseFontSize} aria-label="Decrease font size">
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <span className="w-10 text-center text-sm tabular-nums">{fontSize}px</span>
+                        <Button variant="outline" size="icon" onClick={increaseFontSize} aria-label="Increase font size">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between space-x-2">
+                      <Label htmlFor="high-contrast" className="text-sm font-medium">High Contrast</Label>
+                      <Switch
+                        id="high-contrast"
+                        checked={highContrast}
+                        onCheckedChange={setHighContrast}
+                        aria-label="Toggle high contrast mode"
+                      />
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link href="/settings" className="w-full flex items-center">
+                    <SettingsIcon className="mr-2 h-4 w-4" />
+                    More Settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive hover:!bg-destructive/20 focus:!bg-destructive/20">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : !loading && !user && (
+            <Button onClick={signInWithGoogle} variant="outline" className="border-primary/50 text-primary hover:bg-primary/10 hover:text-primary">
+                <LogIn className="mr-2 h-4 w-4" />
+                Sign In
+            </Button>
+          )}
           
           {/* Mobile Menu Trigger */}
           <DropdownMenu>

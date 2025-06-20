@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { SettingsProvider } from '@/components/settings-provider';
+import { AuthProvider } from '@/contexts/auth-context'; // Import AuthProvider
 import { Toaster } from "@/components/ui/toaster";
 import { CommandPalette } from '@/components/shared/command-palette';
 
@@ -37,15 +38,14 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased bg-background text-foreground min-h-screen flex flex-col">
-        {/* SettingsProvider wraps the children directly to ensure context is available to all pages */}
-        <SettingsProvider> 
-          {children}
-          <Toaster />
-          <CommandPalette />
-        </SettingsProvider>
+        <AuthProvider> {/* Wrap SettingsProvider and children with AuthProvider */}
+          <SettingsProvider> 
+            {children}
+            <Toaster />
+            <CommandPalette />
+          </SettingsProvider>
+        </AuthProvider>
       </body>
     </html>
   );
 }
-
-    
