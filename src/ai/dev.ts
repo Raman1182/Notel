@@ -8,5 +8,6 @@ import '@/ai/flows/process-text-flow.ts';
 import '@/ai/flows/study-buddy-flow.ts';
 import '@/ai/flows/generate-flashcards-flow.ts';
 import '@/ai/flows/generate-quiz-flow.ts';
-import '@/ai/flows/find-note-connections-flow.ts'; // Added new connections flow
+import '@/ai/flows/find-note-connections-flow.ts';
+import '@/ai/flows/process-url-flow.ts'; // Added new URL processing flow
 

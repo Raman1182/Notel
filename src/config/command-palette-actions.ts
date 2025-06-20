@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { Home, BookOpen, Lightbulb, Settings, FileText, ListChecks, Briefcase, MessageCircle, PlayCircle, Wand2, CalendarClock } from 'lucide-react'; 
+import { Home, BookOpen, Lightbulb, Settings, FileText, ListChecks, Briefcase, MessageCircle, PlayCircle, Wand2, CalendarClock, LinkIcon } from 'lucide-react'; 
 
 export interface CommandAction {
   id: string;
@@ -51,7 +51,7 @@ export const commandPaletteActions: CommandAction[] = [
     section: 'Navigation',
     icon: ListChecks,
     keywords: ['todo', 'tasks', 'assignments', 'checklist', 'deadlines', 'dashboard tasks'],
-    href: '/#tasks', // Assuming tasks are on dashboard, or link to specific section. For now, just dashboard.
+    href: '/#tasks', 
   },
   {
     id: 'resources',
@@ -63,12 +63,23 @@ export const commandPaletteActions: CommandAction[] = [
   },
   {
     id: 'open-ai-assistant-chat', 
-    name: 'Open AI Assistant', 
+    name: 'Open AI Assistant (Chat)', 
     section: 'AI Tools', 
     icon: MessageCircle,
     keywords: ['ai', 'assistant', 'chatbot', 'help', 'ask question', 'study buddy'],
     perform: () => {
         const event = new CustomEvent('open-ai-assistant', { detail: { mode: 'chat' } });
+        window.dispatchEvent(event);
+      },
+  },
+  {
+    id: 'open-ai-assistant-process-link', 
+    name: 'Process Link with AI', 
+    section: 'AI Tools', 
+    icon: LinkIcon, 
+    keywords: ['ai', 'assistant', 'url', 'summarize link', 'youtube summary', 'article summary', 'notes from link'],
+    perform: () => {
+        const event = new CustomEvent('open-ai-assistant', { detail: { mode: 'process_link' } });
         window.dispatchEvent(event);
       },
   },
@@ -80,14 +91,14 @@ export const commandPaletteActions: CommandAction[] = [
     keywords: ['preferences', 'settings', 'configure', 'options', 'profile'],
     href: '/settings', 
   },
-   {
-    id: 'ai-summarize-content-action', 
-    name: 'Summarize Content with AI', 
+   { // This action is now somewhat redundant due to the above, but kept for broader "summarize" keyword
+    id: 'ai-summarize-generic-action', 
+    name: 'Summarize Content with AI (Chat)', 
     section: 'AI Tools', 
     icon: Lightbulb, 
     keywords: ['summarize', 'ai tool', 'quick summary', 'digest text', 'explain', 'expand'],
-    perform: () => {
-      const event = new CustomEvent('open-ai-assistant', { detail: { mode: 'summarize' } });
+    perform: () => { // Opens general chat, user can paste or ask for summary
+      const event = new CustomEvent('open-ai-assistant', { detail: { mode: 'chat' } });
       window.dispatchEvent(event);
     },
   },
@@ -98,8 +109,12 @@ export const commandPaletteActions: CommandAction[] = [
     icon: FileText, 
     keywords: ['new note', 'add note', 'quick note', 'current session'],
     perform: () => {
+        // This might be better handled by the AI Smart Search in command palette
+        // or a more direct "add note to current session" command if a session is active.
+        // For now, it can open the command palette focused on a more specific query.
         const event = new CustomEvent('open-command-palette', { detail: { initialQuery: 'create new note in session' } });
         window.dispatchEvent(event);
     }
   },
 ];
+
