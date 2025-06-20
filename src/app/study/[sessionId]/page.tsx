@@ -593,7 +593,6 @@ function StudySessionPageContent() {
     }
   }
 
-  // Fix: Create a new const for the prop value to avoid potential ReferenceError
   const sidebarActiveNodeIdProp = activeNoteId;
 
 
@@ -658,7 +657,7 @@ function StudySessionPageContent() {
                         ? `/notes/${connectionSessionId}/viewer?subject=${encodeURIComponent(suggestion.connectedNoteSubject || 'Note')}&note=${connectionNoteIdPart}` 
                         : `/notes/${connectionSessionId}/viewer?subject=${encodeURIComponent(suggestion.connectedNoteSubject || 'Note')}`;
                     return (
-                        <UiCard key={index} className="bg-muted/30 p-4 border-l-4 border-primary/70">
+                        <Card key={index} className="bg-muted/30 p-4 border-l-4 border-primary/70">
                           <UiCardHeader className="p-0 pb-2">
                             <UiCardTitle className="text-base md:text-lg">
                               <Link href={targetHref} 
@@ -673,7 +672,7 @@ function StudySessionPageContent() {
                             <p className="text-sm font-semibold mt-1">Concept: <span className="font-normal">{suggestion.connectingConcept}</span></p>
                             <p className="text-sm mt-1"><span className="font-semibold">Explanation:</span> {suggestion.explanation}</p>
                           </UiCardContent>
-                        </UiCard>
+                        </Card>
                     );
                  }) : <p className="text-muted-foreground text-center py-10">No strong connections found this time.</p>}
                </div>
