@@ -7,11 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { SessionSidebar, type TreeNode, findNodeByIdRecursive } from '@/components/study/session-sidebar';
 import { FloatingTimerWidget } from '@/components/study/floating-timer-widget';
-import { Paperclip, StickyNote, Loader2, X, Brain, MessageSquare, Sparkles, FileText as FileTextIcon, AlertTriangle, Layers, History, HelpCircle } from 'lucide-react';
+import { Paperclip, StickyNote, Loader2, X, Brain, MessageSquare, Sparkles, FileText as FileTextIcon, AlertTriangle, Layers, History, HelpCircle, Link2 } from 'lucide-react'; // Added Link2
 import type { SessionData, TimerMode } from '@/app/study/launch/page';
 import { processText, type ProcessTextInput } from '@/ai/flows/process-text-flow';
 import { generateFlashcardsFlow, type GenerateFlashcardsInput, type GenerateFlashcardsOutput } from '@/ai/flows/generate-flashcards-flow';
 import { generateQuizFlow, type GenerateQuizInput, type GenerateQuizOutput } from '@/ai/flows/generate-quiz-flow';
+import { findNoteConnectionsFlow, type FindNoteConnectionsInput, type FindNoteConnectionsOutput, type ConnectionSuggestion } from '@/ai/flows/find-note-connections-flow'; // Added
+
 
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -23,8 +25,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"; // AlertDialogTrigger removed as it's not used directly here
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+} from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"; // DialogFooter added
 import Link from 'next/link';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -58,6 +60,53 @@ function findFirstNoteRecursive(nodes: TreeNode[]): TreeNode | null {
   return null;
 }
 
+// Helper to get snippets from historical notes
+async function getHistoricalNoteSnippets(currentSessionId: string, maxSnippets = 10, snippetLength = 300): Promise<FindNoteConnectionsInput['historicalNotes']> {
+  const historicalNotes: FindNoteConnectionsInput['historicalNotes'] = [];
+  const sessionsIndexJSON = localStorage.getItem('learnlog-sessions-index');
+  if (!sessionsIndexJSON) return [];
+
+  const allSessionIds: string[] = JSON.parse(sessionsIndexJSON);
+  
+  for (const sessionId of allSessionIds) {
+    if (sessionId === currentSessionId) continue;
+    if (historicalNotes.length >= maxSnippets) break;
+
+    const sessionDataJSON = localStorage.getItem(`learnlog-session-${sessionId}`);
+    const sessionTreeJSON = localStorage.getItem(`learnlog-session-${sessionId}-tree`);
+    const sessionNotesContentJSON = localStorage.getItem(`learnlog-session-${sessionId}-notesContent`);
+
+    if (sessionDataJSON && sessionTreeJSON && sessionNotesContentJSON) {
+      try {
+        const sessionData: SessionData = JSON.parse(sessionDataJSON);
+        const tree: TreeNode[] = JSON.parse(sessionTreeJSON);
+        const notesContent: Record<string, string> = JSON.parse(sessionNotesContentJSON);
+
+        const extractSnippetsRecursive = (nodes: TreeNode[]) => {
+          for (const node of nodes) {
+            if (historicalNotes.length >= maxSnippets) return;
+            if (node.type === 'note' && notesContent[node.id] && notesContent[node.id].trim().length > 50) { // Only consider notes with some content
+              historicalNotes.push({
+                noteId: node.id, // Use node.id as it's unique to the note itself
+                subject: sessionData.subject,
+                title: node.name,
+                contentSnippet: notesContent[node.id].substring(0, snippetLength) + (notesContent[node.id].length > snippetLength ? '...' : ''),
+              });
+            }
+            if (node.children) {
+              extractSnippetsRecursive(node.children);
+            }
+          }
+        };
+        extractSnippetsRecursive(tree);
+      } catch (e) {
+        console.warn(`Could not parse data for session ${sessionId}`, e);
+      }
+    }
+  }
+  return historicalNotes;
+}
+
 
 function StudySessionPageContent() {
   const params = useParams();
@@ -83,7 +132,8 @@ function StudySessionPageContent() {
 
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [aiGeneratedContent, setAiGeneratedContent] = useState<string | null>(null);
-  const [aiGeneratedContentType, setAiGeneratedContentType] = useState<'flashcards' | 'quiz' | null>(null);
+  const [aiGeneratedContentType, setAiGeneratedContentType] = useState<'flashcards' | 'quiz' | 'connections' | null>(null); // Added 'connections'
+  const [aiConnectionSuggestions, setAiConnectionSuggestions] = useState<ConnectionSuggestion[]>([]);
 
 
   const [sessionTime, setSessionTime] = useState(0); // in seconds
@@ -229,12 +279,10 @@ function StudySessionPageContent() {
 
   const confirmEndSession = () => {
     setIsSessionRunning(false);
-    if (activeNoteId) {
-        const finalNotes = { ...notesContent, [activeNoteId]: currentNoteContent };
-        localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(finalNotes));
-    } else {
-        localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(notesContent));
-    }
+    // Ensure current note content is part of the notesContent state before saving
+    const finalNotesToSave = activeNoteId ? { ...notesContent, [activeNoteId]: currentNoteContent } : notesContent;
+    localStorage.setItem(`learnlog-session-${sessionId}-notesContent`, JSON.stringify(finalNotesToSave));
+
     if (treeData.length > 0) localStorage.setItem(`learnlog-session-${sessionId}-tree`, JSON.stringify(treeData));
 
     const storedSessionDataJSON = localStorage.getItem(`learnlog-session-${sessionId}`);
@@ -365,6 +413,8 @@ function StudySessionPageContent() {
       return;
     }
     setIsAiProcessing(true);
+    setAiGeneratedContent(null);
+    setAiConnectionSuggestions([]);
     try {
       const input: GenerateFlashcardsInput = { noteContent: currentNoteContent, subject: notebookTitle };
       const result = await generateFlashcardsFlow(input);
@@ -384,6 +434,8 @@ function StudySessionPageContent() {
       return;
     }
     setIsAiProcessing(true);
+    setAiGeneratedContent(null);
+    setAiConnectionSuggestions([]);
     try {
       const input: GenerateQuizInput = { noteContent: currentNoteContent, subject: notebookTitle, numQuestions: 5 };
       const result = await generateQuizFlow(input);
@@ -392,6 +444,38 @@ function StudySessionPageContent() {
       toast({ title: "Quiz Generated", description: "AI has created a quiz from your note." });
     } catch (error) {
       toast({ title: "Quiz Generation Error", description: error instanceof Error ? error.message : "Could not generate quiz.", variant: "destructive"});
+    } finally {
+      setIsAiProcessing(false);
+    }
+  };
+  
+  const handleFindConnections = async () => {
+    if (!activeNoteId || !currentNoteContent.trim()) {
+      toast({ title: "Info", description: "Select a note with content to find connections.", variant: "default" });
+      return;
+    }
+    setIsAiProcessing(true);
+    setAiGeneratedContent(null);
+    setAiConnectionSuggestions([]);
+    try {
+      const historicalNotes = await getHistoricalNoteSnippets(sessionId);
+      if (historicalNotes.length === 0) {
+        toast({title: "No Historical Notes", description: "Not enough historical note data to find connections.", variant: "default"});
+        setIsAiProcessing(false);
+        return;
+      }
+      const input: FindNoteConnectionsInput = {
+        currentNoteId: activeNoteId,
+        currentNoteContent: currentNoteContent,
+        currentNoteSubject: notebookTitle,
+        historicalNotes: historicalNotes,
+      };
+      const result = await findNoteConnectionsFlow(input);
+      setAiConnectionSuggestions(result.suggestions);
+      setAiGeneratedContentType('connections');
+      toast({ title: "Connections Analyzed", description: result.suggestions.length > 0 ? `Found ${result.suggestions.length} potential connection(s).` : "No strong connections found this time."});
+    } catch (error) {
+      toast({ title: "Connection Analysis Error", description: error instanceof Error ? error.message : "Could not analyze connections.", variant: "destructive"});
     } finally {
       setIsAiProcessing(false);
     }
@@ -413,16 +497,14 @@ function StudySessionPageContent() {
         setIsReferencePanelOpen(true);
         setSelectedPreviousSessionIdForReference(null);
         if (sessionId) {
-            // Store PDF name and potentially data URI (if small enough) or a flag
             localStorage.setItem(`learnlog-session-${sessionId}-pdfName`, file.name);
-            // Consider localStorage size limits if storing data URIs
         }
       };
       reader.readAsDataURL(file);
     } else if (file) {
       toast({ title: "Invalid File", description: "Please select a PDF file.", variant: "destructive" });
     }
-    if (event.target) event.target.value = ''; // Reset file input
+    if (event.target) event.target.value = ''; 
   };
 
   const handleClearPdf = () => {
@@ -431,28 +513,26 @@ function StudySessionPageContent() {
     setIsReferencePanelOpen(false); 
     if (sessionId) {
         localStorage.removeItem(`learnlog-session-${sessionId}-pdfName`);
-        // also remove stored data URI if applicable
     }
   };
   
   const handleOpenPreviousNotes = () => {
     setReferencePanelMode('notes');
     setIsReferencePanelOpen(true);
-    setCurrentPdf(null); // Clear any active PDF
-    setSelectedPreviousSessionIdForReference(null); // Reset selected session
+    setCurrentPdf(null); 
+    setSelectedPreviousSessionIdForReference(null); 
 
-    // Load other sessions for reference panel
     const sessionsIndexJSON = localStorage.getItem('learnlog-sessions-index');
     if (sessionsIndexJSON) {
         const allIds: string[] = JSON.parse(sessionsIndexJSON);
         const otherSessionsData = allIds
-            .filter(id => id !== sessionId) // Exclude current session
+            .filter(id => id !== sessionId) 
             .map(id => {
                 const sessionJSON = localStorage.getItem(`learnlog-session-${id}`);
                 return sessionJSON ? JSON.parse(sessionJSON) as SessionData : null;
             })
             .filter(session => session !== null) as SessionData[];
-        setAllSessionsForReference(otherSessionsData.sort((a, b) => (b.startTime || 0) - (a.startTime || 0))); // Sort by most recent
+        setAllSessionsForReference(otherSessionsData.sort((a, b) => (b.startTime || 0) - (a.startTime || 0))); 
     } else {
         setAllSessionsForReference([]);
     }
@@ -492,14 +572,12 @@ function StudySessionPageContent() {
   let saveStatus = 'No active note';
   if (activeNoteId) {
     const savedContent = notesContent[activeNoteId];
-    // Check if currentNoteContent exists and is different from saved.
-    // Also consider if savedContent is undefined (new note) vs empty string (cleared note).
-    if (savedContent === undefined && currentNoteContent === '') { // New, empty note
+    if (savedContent === undefined && currentNoteContent === '') { 
         saveStatus = 'Saved'; 
     } else if (savedContent === currentNoteContent) {
         saveStatus = 'Saved';
     } else {
-        saveStatus = 'Saving...'; // This indicates the debounce timer is active
+        saveStatus = 'Saving...'; 
     }
   }
 
@@ -525,20 +603,51 @@ function StudySessionPageContent() {
         </AlertDialogContent>
       </AlertDialog>
 
-       <Dialog open={!!aiGeneratedContent} onOpenChange={(open) => { if (!open) { setAiGeneratedContent(null); setAiGeneratedContentType(null);}}}>
-        <DialogContent className="sm:max-w-lg">
+      <Dialog open={!!aiGeneratedContentType && (!!aiGeneratedContent || aiConnectionSuggestions.length > 0)} onOpenChange={(open) => { if (!open) { setAiGeneratedContent(null); setAiGeneratedContentType(null); setAiConnectionSuggestions([]); }}}>
+        <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>AI Generated {aiGeneratedContentType === 'flashcards' ? 'Flashcards' : 'Quiz'}</DialogTitle>
+            <DialogTitle>
+              {aiGeneratedContentType === 'flashcards' && 'AI Generated Flashcards'}
+              {aiGeneratedContentType === 'quiz' && 'AI Generated Quiz'}
+              {aiGeneratedContentType === 'connections' && 'AI Suggested Connections'}
+            </DialogTitle>
             <DialogDescription>
-              Here's what the AI generated from your note. You can copy this content.
+              {aiGeneratedContentType === 'connections' 
+                ? (aiConnectionSuggestions.length > 0 ? "Here are some potential connections to your other notes:" : "No strong connections found this time.")
+                : "Here's what the AI generated. You can copy this content."}
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh] mt-4 p-1">
-            <pre className="text-xs bg-muted p-3 rounded-md whitespace-pre-wrap break-words custom-scrollbar">
-              <code>{aiGeneratedContent}</code>
-            </pre>
+          <ScrollArea className="max-h-[60vh] mt-4 p-1 custom-scrollbar">
+            {aiGeneratedContentType === 'connections' ? (
+              <div className="space-y-4">
+                {aiConnectionSuggestions.map((suggestion, index) => (
+                  <Card key={index} className="bg-muted/50 p-4">
+                    <CardHeader className="p-0 pb-2">
+                      <CardTitle className="text-base">
+                        <Link href={`/notes/${suggestion.connectedNoteId}/viewer?subject=${encodeURIComponent(suggestion.connectedNoteSubject || 'Note')}`} 
+                              target="_blank" rel="noopener noreferrer" 
+                              className="text-primary hover:underline flex items-center">
+                          <FileTextIcon className="h-4 w-4 mr-2 shrink-0"/> {suggestion.connectedNoteTitle}
+                        </Link>
+                      </CardTitle>
+                      {suggestion.connectedNoteSubject && <p className="text-xs text-muted-foreground">Subject: {suggestion.connectedNoteSubject}</p>}
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <p className="text-sm font-semibold mt-1">Concept: <span className="font-normal">{suggestion.connectingConcept}</span></p>
+                      <p className="text-sm mt-1"><span className="font-semibold">Explanation:</span> {suggestion.explanation}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <pre className="text-xs bg-muted p-3 rounded-md whitespace-pre-wrap break-words">
+                <code>{aiGeneratedContent}</code>
+              </pre>
+            )}
           </ScrollArea>
-           <Button onClick={() => { setAiGeneratedContent(null); setAiGeneratedContentType(null); }} className="mt-4">Close</Button>
+           <DialogFooter className="mt-4">
+            <Button onClick={() => { setAiGeneratedContent(null); setAiGeneratedContentType(null); setAiConnectionSuggestions([]); }}>Close</Button>
+           </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -547,7 +656,7 @@ function StudySessionPageContent() {
           sessionSubject={notebookTitle} 
           treeData={treeData}
           onSelectNode={handleNoteSelect}
-          activeNodeId={activeNoteId}
+          activeNodeId={activeNodeId}
           onAddNode={addNodeToTree}
         />
 
@@ -563,7 +672,7 @@ function StudySessionPageContent() {
                 PDF
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleOpenPreviousNotes} className="bg-white/5 border-white/10 hover:bg-white/10 text-foreground-opacity-70 hover:text-foreground-opacity-100">
-                <History className="h-4 w-4 mr-2" /> {/* Changed icon */}
+                <History className="h-4 w-4 mr-2" />
                 Prev. Notes
                 </Button>
             </div>
@@ -583,7 +692,7 @@ function StudySessionPageContent() {
               />
               {isEditorActive && (
                 <div 
-                    className="flex items-center justify-end space-x-2 p-2 border-t border-white/10 rounded-b-md transition-opacity duration-200"
+                    className="flex items-center justify-end space-x-1 p-2 border-t border-white/10 rounded-b-md"
                 >
                   <Button size="sm" variant="ghost" className="text-xs p-1.5 px-2 disabled:opacity-50 bg-primary/10 hover:bg-primary/20 text-primary" onClick={() => handleAiAction('explain')} disabled={isAiProcessing || !currentNoteContent.trim()}>
                     {isAiProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Brain className="h-3 w-3 mr-1" />} Explain
@@ -599,6 +708,9 @@ function StudySessionPageContent() {
                   </Button>
                    <Button size="sm" variant="ghost" className="text-xs p-1.5 px-2 disabled:opacity-50 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400" onClick={handleGenerateQuiz} disabled={isAiProcessing || !currentNoteContent.trim()}>
                     {isAiProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <HelpCircle className="h-3 w-3 mr-1" />} Quiz
+                  </Button>
+                   <Button size="sm" variant="ghost" className="text-xs p-1.5 px-2 disabled:opacity-50 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400" onClick={handleFindConnections} disabled={isAiProcessing || !currentNoteContent.trim()}>
+                    {isAiProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Link2 className="h-3 w-3 mr-1" />} Connections
                   </Button>
                 </div>
               )}
@@ -652,7 +764,7 @@ function StudySessionPageContent() {
                       )}
                     </ScrollArea>
                   )}
-                  {!referencePanelMode && ( // If no mode is selected or PDF cleared
+                  {!referencePanelMode && ( 
                      <div className="p-4 text-muted-foreground text-xs">Select a reference to view.</div>
                   )}
                 </div>
@@ -686,3 +798,5 @@ export default function StudySessionPage() {
   );
 }
 
+// Import Card components to be used in the connections dialog
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
