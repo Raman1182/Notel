@@ -1,7 +1,8 @@
+
 'use client';
 
 import { UserAuthForm } from '@/components/auth/user-auth-form';
-import { Sparkles, PlayCircle, Flame, MessageCircle } from 'lucide-react';
+import { Sparkles, PlayCircle, Flame, MessageCircle, Layers, Link2, CalendarCheck, Command } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AuthenticationPage() {
@@ -56,6 +57,42 @@ export default function AuthenticationPage() {
               </div>
               <div className="p-3 bg-primary/10 rounded-full ml-4">
                 <MessageCircle className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+            <div className="flex items-center transform -rotate-2 hover:rotate-0 hover:scale-105 transition-transform duration-300 ease-out">
+              <div className="p-3 bg-primary/10 rounded-full mr-4">
+                <Layers className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">AI-Generated Quizzes</h3>
+                <p className="text-sm text-muted-foreground">Turn your notes into tests with one click.</p>
+              </div>
+            </div>
+            <div className="flex items-center transform rotate-2 hover:rotate-0 hover:scale-105 transition-transform duration-300 ease-out justify-end">
+               <div className="text-right">
+                <h3 className="font-semibold text-lg">Smart Note Connections</h3>
+                <p className="text-sm text-muted-foreground">Discover hidden links between your notes.</p>
+              </div>
+              <div className="p-3 bg-primary/10 rounded-full ml-4">
+                <Link2 className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+            <div className="flex items-center transform -rotate-2 hover:rotate-0 hover:scale-105 transition-transform duration-300 ease-out">
+              <div className="p-3 bg-primary/10 rounded-full mr-4">
+                <CalendarCheck className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">Deadline Management</h3>
+                <p className="text-sm text-muted-foreground">Track assignments with an integrated calendar.</p>
+              </div>
+            </div>
+            <div className="flex items-center transform rotate-2 hover:rotate-0 hover:scale-105 transition-transform duration-300 ease-out justify-end">
+               <div className="text-right">
+                <h3 className="font-semibold text-lg">Effortless Navigation</h3>
+                <p className="text-sm text-muted-foreground">Use <kbd>Cmd+K</kbd> to go anywhere instantly.</p>
+              </div>
+              <div className="p-3 bg-primary/10 rounded-full ml-4">
+                <Command className="h-6 w-6 text-primary" />
               </div>
             </div>
           </div>
