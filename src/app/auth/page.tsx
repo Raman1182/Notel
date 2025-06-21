@@ -17,7 +17,7 @@ export default function AuthenticationPage() {
           </Link>
         </div>
         
-        <div className="relative z-20 m-auto">
+        <div className="relative z-20 my-auto">
           <div className="mb-8">
             <h2 className="text-3xl font-bold font-headline">Supercharge Your Studies.</h2>
             <p className="text-muted-foreground mt-2">All the tools you need, powered by AI.</p>
