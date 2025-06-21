@@ -5,7 +5,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, addDoc, doc, updateDoc, deleteDoc, orderBy, serverTimestamp, Timestamp } from 'firebase/firestore';
 import type { Todo } from '@/components/dashboard/todo-item'; // Assuming Todo type is defined here
 
-export interface TodoData extends Omit<Todo, 'id' | 'dueDate'> {
+export interface TodoData extends Omit<Todo, 'id'> {
   userId: string;
   createdAt: Timestamp;
   dueDate?: Timestamp; // If you add due dates to todos later
