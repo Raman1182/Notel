@@ -30,6 +30,7 @@ interface AuthContextProps {
   signUpWithEmail: (credentials: EmailPasswordCredentials) => Promise<User | string>;
   signInWithEmail: (credentials: EmailPasswordCredentials) => Promise<User | string>;
   signOut: () => Promise<void>;
+  resendVerificationEmail: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -126,8 +127,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resendVerificationEmail = async (): Promise<void> => {
+    if (!auth.currentUser) {
+      toast({ title: "Not Logged In", description: "You must be logged in to resend a verification email.", variant: "destructive" });
+      return;
+    }
+    try {
+      await sendEmailVerification(auth.currentUser);
+      toast({
+        title: "Verification Email Sent",
+        description: "A new verification link has been sent to your email address. Please check your inbox.",
+      });
+    } catch (error: any) {
+      console.error("Error resending verification email:", error);
+      toast({ title: "Error", description: error.message || "Could not send verification email. Please try again in a few minutes.", variant: "destructive" });
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signUpWithEmail, signInWithEmail, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signUpWithEmail, signInWithEmail, signOut, resendVerificationEmail }}>
       {children}
     </AuthContext.Provider>
   );

@@ -13,11 +13,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader2, User, LogOut, Brush, Contrast, Type } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useState } from 'react';
 
 export default function SettingsPage() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, resendVerificationEmail } = useAuth();
   const { fontSize, setFontSize, highContrast, setHighContrast } = useSettings();
   const router = useRouter();
+  const [isResending, setIsResending] = useState(false);
 
   if (loading) {
     return (
@@ -35,6 +37,12 @@ export default function SettingsPage() {
   const handleSignOut = async () => {
     await signOut();
     router.push('/');
+  }
+
+  const handleResendVerification = async () => {
+    setIsResending(true);
+    await resendVerificationEmail();
+    setIsResending(false);
   }
 
   return (
@@ -75,6 +83,14 @@ export default function SettingsPage() {
                     <Button variant="destructive" onClick={handleSignOut}>
                         <LogOut className="mr-2 h-4 w-4" /> Sign Out
                     </Button>
+                     {!user.emailVerified && (
+                        <div className="pt-4 mt-2 border-t border-border/50">
+                            <Button onClick={handleResendVerification} disabled={isResending} className="w-full bg-warning text-warning-foreground hover:bg-warning/90">
+                                {isResending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Resend Verification Email
+                            </Button>
+                        </div>
+                    )}
                 </CardContent>
               </Card>
             </div>
