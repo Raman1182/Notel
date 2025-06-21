@@ -40,7 +40,7 @@ function timeAgo(timestamp: number): string {
   if (minutes === 1) return '1 minute ago';
   if (minutes < 60) return `${minutes} minutes ago`;
   if (hours === 1) return '1 hour ago';
-  if (hours < 24) return `${hours} hours ago';
+  if (hours < 24) return `${hours} hours ago`;
   if (days === 1) return 'Yesterday';
   const date = new Date(timestamp);
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -147,7 +147,7 @@ const NotesSubjectListingPage: NextPage = () => {
         {!isLoading && subjectAggregates.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {subjectAggregates.map((subject) => (
-              <Link key={subject.name} href={`/notes/subject/${encodeURIComponent(subject.name)}`} passHref>
+              <Link key={subject.name} href={'/notes/subject/' + encodeURIComponent(subject.name)}>
                 <Card className="bg-card border-border shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 ease-out flex flex-col h-full cursor-pointer">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
