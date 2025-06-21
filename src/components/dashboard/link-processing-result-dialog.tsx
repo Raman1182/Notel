@@ -61,39 +61,46 @@ export function LinkProcessingResultDialog({
         {error && (
             <Alert variant="destructive" className="my-4">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Processing Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
+                <AlertTitle>Processing Issue</AlertTitle>
+                <AlertDescription>{summary || error}</AlertDescription>
             </Alert>
         )}
 
         <ScrollArea className="flex-1 my-4 pr-3 custom-scrollbar">
-            <div className="space-y-4">
-            <div>
-                <h3 className="text-md font-semibold mb-1 text-primary">Summary</h3>
-                <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md whitespace-pre-wrap">
-                {summary || "No summary could be generated."}
-                </p>
-            </div>
-            <div>
-                <div className="flex items-center justify-between mb-1">
-                    <h3 className="text-md font-semibold text-primary">Structured Notes</h3>
-                    {structuredNotes && (
-                        <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleCopyNotes}
-                        className="text-xs"
-                        >
-                        {copiedNotes ? <Check className="h-4 w-4 mr-1 text-success" /> : <Copy className="h-4 w-4 mr-1" />}
-                        {copiedNotes ? "Copied!" : "Copy Notes"}
-                        </Button>
-                    )}
+            {!error ? (
+              <div className="space-y-4">
+                <div>
+                    <h3 className="text-md font-semibold mb-1 text-primary">Summary</h3>
+                    <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md whitespace-pre-wrap">
+                    {summary || "No summary could be generated."}
+                    </p>
                 </div>
-                <pre className="text-sm text-foreground bg-muted/50 p-3 rounded-md whitespace-pre-wrap font-code text-xs leading-relaxed">
-                {structuredNotes || "No structured notes could be generated."}
-                </pre>
-            </div>
-            </div>
+                <div>
+                    <div className="flex items-center justify-between mb-1">
+                        <h3 className="text-md font-semibold text-primary">Structured Notes</h3>
+                        {structuredNotes && (
+                            <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleCopyNotes}
+                            className="text-xs"
+                            disabled={!structuredNotes}
+                            >
+                            {copiedNotes ? <Check className="h-4 w-4 mr-1 text-success" /> : <Copy className="h-4 w-4 mr-1" />}
+                            {copiedNotes ? "Copied!" : "Copy Notes"}
+                            </Button>
+                        )}
+                    </div>
+                    <pre className="text-sm text-foreground bg-muted/50 p-3 rounded-md whitespace-pre-wrap font-code text-xs leading-relaxed">
+                    {structuredNotes || "No structured notes could be generated."}
+                    </pre>
+                </div>
+              </div>
+            ) : (
+                <div className="text-center text-muted-foreground p-4">
+                    <p>See the error message above for details.</p>
+                </div>
+            )}
         </ScrollArea>
 
         <DialogFooter className="mt-auto pt-4 border-t border-border">

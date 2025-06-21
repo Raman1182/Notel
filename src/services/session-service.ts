@@ -40,10 +40,23 @@ export async function addSession(userId: string, sessionData: SessionData): Prom
   
   const { sessionId, ...dataToStore } = sessionData; // Exclude client-side sessionId
 
+  const initialTree: TreeNode[] = [
+    {
+      id: 'root',
+      name: dataToStore.subject,
+      type: 'subject',
+      children: [],
+      parentId: null,
+    },
+  ];
+
   try {
     const docRef = await addDoc(collection(db, SESSIONS_COLLECTION), {
       ...dataToStore,
       userId: userId,
+      treeData: initialTree,
+      notesContent: {},
+      actualDuration: 0,
       // `startTime` is already set in sessionData from client
     });
     return docRef.id;

@@ -32,20 +32,21 @@ const prompt = ai.definePrompt({
   name: 'processUrlPrompt',
   input: { schema: ProcessUrlInputSchema },
   output: { schema: ProcessUrlOutputSchema },
-  prompt: `You are an AI assistant integrated into the LearnLog app. Your task is to process the content from the provided article URL, summarize it, and generate structured notes.
+  prompt: `You are an AI assistant integrated into the LearnLog app. Your task is to process the content from a provided URL, summarize it, and generate structured notes.
+
+**Important:** This feature is designed to work with text-based online articles and blog posts. It may not work correctly with video platforms (like YouTube), social media, complex web applications, or pages behind a paywall.
 
 URL: {{{url}}}
 
 Instructions:
-1.  Attempt to access and understand the content from the given URL.
-2.  Identify the main topic, key arguments, evidence, and conclusions from the article.
+1.  Access the content from the given URL.
+2.  Analyze the text to identify the main topic, key arguments, and conclusions.
 3.  Generate a concise 'summary' of the content.
-4.  Generate 'structuredNotes'. These notes should be well-organized, using Markdown for formatting (e.g., headings like ##, ###, and bullet points like - or *). Focus on extracting the most important information that would be useful for study purposes.
-5.  If you are unable to access or process the URL for any reason (e.g., paywall, network error, not an article), set the 'summary' to a message explaining the issue (e.g., "Could not access content at the provided URL or it does not appear to be an article."), make 'structuredNotes' an empty string or a similar message, and set the 'error' field with a brief technical reason if possible.
+4.  Generate 'structuredNotes'. These notes should be well-organized in Markdown format (use headings like ##, ###, and bullet points like - or *). Focus on extracting the most important information for studying.
+5.  If you cannot access or process the URL (e.g., it's a video, paywalled, or results in an error), clearly state this in the 'summary'. For example: "Could not process this URL. It may be a video, a paywalled article, or an unsupported content type." In such cases, make 'structuredNotes' an empty string and set the 'error' field with a brief explanation.
 
 Output Format:
-Ensure your output strictly adheres to the JSON schema with 'summary' and 'structuredNotes' fields.
-If an error occurs, also populate the 'error' field.
+Your output must strictly follow the JSON schema with 'summary' and 'structuredNotes' fields. If an error occurs, populate the 'error' field as well.
 `,
 });
 
@@ -60,7 +61,7 @@ const internalProcessUrlFlow = ai.defineFlow(
       const { output } = await prompt(input);
       if (!output) {
         return {
-          summary: "The AI failed to generate a response for the URL.",
+          summary: "The AI failed to generate a response for the URL. The URL might be inaccessible or the content type is not supported.",
           structuredNotes: "No notes could be generated.",
           error: "AI processing failed to return structured output."
         };
@@ -73,7 +74,7 @@ const internalProcessUrlFlow = ai.defineFlow(
     } catch (e: any) {
       console.error("Error in internalProcessUrlFlow:", e);
       return {
-        summary: "An unexpected error occurred while processing the URL.",
+        summary: "An unexpected error occurred while processing the URL. It may be offline or block automated access.",
         structuredNotes: `Error: ${e.message || 'Unknown error'}`,
         error: e.message || 'Unknown error during flow execution.',
       };
