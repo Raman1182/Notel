@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -88,8 +87,8 @@ export function StudyAnalyticsWidget() {
       
       {!error && chartData.length > 0 && (
         <>
-            <div className="h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
+            <ChartContainer config={chartConfig} className="h-[250px] w-full">
+                <ResponsiveContainer>
                 <BarChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
                     <XAxis
                         dataKey="subject"
@@ -110,10 +109,10 @@ export function StudyAnalyticsWidget() {
                         cursor={{ fill: 'hsla(var(--muted))' }}
                         content={<ChartTooltipContent />}
                     />
-                    <Bar dataKey="hours" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="hours" fill="var(--color-hours)" radius={[4, 4, 0, 0]} />
                 </BarChart>
                 </ResponsiveContainer>
-            </div>
+            </ChartContainer>
             <div className="flex justify-end mt-2">
                 <Button variant="link" asChild>
                     <Link href="/analytics">View More Analytics</Link>
