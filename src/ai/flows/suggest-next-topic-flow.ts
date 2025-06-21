@@ -40,16 +40,31 @@ export async function suggestNextTopicFlow(input: SuggestNextTopicInput): Promis
   return internalSuggestNextTopicFlow(input);
 }
 
+// Internal schema for the prompt with pre-formatted data
+const FormattedSessionInfoSchema = z.object({
+  subject: z.string(),
+  formattedDate: z.string(),
+  formattedDuration: z.string().nullable(),
+});
+
+const SuggestNextTopicPromptInputSchema = z.object({
+  historicalSessions: z.array(FormattedSessionInfoSchema),
+  upcomingDeadlines: z.array(DeadlineInfoSchema),
+  subjects: z.array(z.string()),
+  currentDate: z.string(),
+});
+
+
 const prompt = ai.definePrompt({
   name: 'suggestNextTopicPrompt',
-  input: { schema: SuggestNextTopicInputSchema },
+  input: { schema: SuggestNextTopicPromptInputSchema }, // Use internal schema
   output: { schema: SuggestNextTopicOutputSchema },
   prompt: `You are an expert academic advisor AI for the LearnLog app. Your goal is to help a student decide what to study next.
 
 Analyze the student's study history and upcoming deadlines to provide a smart recommendation.
 
 Here is the data you have:
-- Today's Date: ${new Date().toDateString()}
+- Today's Date: {{{currentDate}}}
 - All subjects the user has ever studied: {{{json subjects}}}
 
 Upcoming Deadlines:
@@ -64,7 +79,7 @@ Upcoming Deadlines:
 Recent Study Sessions (most recent first):
 {{#if historicalSessions}}
 {{#each historicalSessions}}
-- Studied "{{this.subject}}" on {{#intlDateTimeFormat this.startTime timeZone="UTC" day="numeric" month="long" year="numeric"}}{{/intlDateTimeFormat}}{{#if this.actualDuration}} for {{#round (divide this.actualDuration 60)}}{{/round}} minutes{{/if}}.
+- Studied "{{this.subject}}" on {{this.formattedDate}}{{#if this.formattedDuration}} {{this.formattedDuration}}{{/if}}.
 {{/each}}
 {{else}}
 - No study history available.
@@ -85,7 +100,7 @@ If there's no data, suggest they start a new session on any topic they're intere
 const internalSuggestNextTopicFlow = ai.defineFlow(
   {
     name: 'internalSuggestNextTopicFlow',
-    inputSchema: SuggestNextTopicInputSchema,
+    inputSchema: SuggestNextTopicInputSchema, // Flow still uses external schema
     outputSchema: SuggestNextTopicOutputSchema,
   },
   async (input) => {
@@ -95,7 +110,25 @@ const internalSuggestNextTopicFlow = ai.defineFlow(
             reasoning: "You have no study history yet. Start a session on any subject you're interested in to begin your journey!"
         }
     }
-    const { output } = await prompt(input);
+
+    // Pre-process the data to create formatted strings for the prompt
+    const processedInput = {
+        ...input,
+        currentDate: new Date().toDateString(),
+        historicalSessions: input.historicalSessions.map(session => ({
+            subject: session.subject,
+            formattedDate: new Date(session.startTime).toLocaleDateString('en-US', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                timeZone: 'UTC'
+            }),
+            formattedDuration: session.actualDuration ? `for ${Math.round(session.actualDuration / 60)} minutes` : null
+        })),
+    };
+
+
+    const { output } = await prompt(processedInput);
     if (!output) {
       throw new Error("AI failed to generate a suggestion.");
     }
