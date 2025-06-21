@@ -195,7 +195,9 @@ function StudySessionPageContent() {
   
   const confirmEndSession = () => {
     setIsSessionRunning(false);
-    saveActualDurationToFirestore.flush(); // Ensure the latest time is saved immediately
+    if (sessionId) {
+      updateSession(sessionId, { actualDuration: sessionTime });
+    }
     setShowEndSessionDialog(false);
     toast({ title: "Session Paused", description: `${sessionData?.subject || 'Session'} progress saved.`});
     router.push('/');
