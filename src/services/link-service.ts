@@ -15,13 +15,16 @@ import {
 } from 'firebase/firestore';
 import type { SavedLink } from '@/components/dashboard/saved-link-item';
 
-export interface LinkData extends Omit<SavedLink, 'id'> {
+// Firestore data structure
+interface FirestoreLinkData extends Omit<SavedLink, 'id'> {
   userId: string;
   createdAt: Timestamp;
 }
 
-export interface LinkDocument extends LinkData {
-    id: string;
+// Serializable object for the client
+export interface LinkDocument extends SavedLink {
+    userId: string;
+    createdAt: string;
 }
 
 const LINKS_COLLECTION = 'savedLinks';
@@ -35,17 +38,19 @@ export async function getLinks(userId: string): Promise<LinkDocument[]> {
         where('userId', '==', userId)
     );
     const querySnapshot = await getDocs(q);
-    const links = querySnapshot.docs.map(docSnap => ({
-      id: docSnap.id,
-      ...docSnap.data(),
-    })) as LinkDocument[];
+    const links: LinkDocument[] = querySnapshot.docs.map(docSnap => {
+        const data = docSnap.data() as FirestoreLinkData;
+        return {
+            id: docSnap.id,
+            title: data.title,
+            url: data.url,
+            userId: data.userId,
+            createdAt: data.createdAt.toDate().toISOString(),
+        }
+    });
 
     // Sort links by creation date in descending order (newest first)
-    links.sort((a, b) => {
-      const timeA = a.createdAt?.toMillis() ?? 0;
-      const timeB = b.createdAt?.toMillis() ?? 0;
-      return timeB - timeA;
-    });
+    links.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     
     return links;
 

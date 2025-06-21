@@ -1,17 +1,16 @@
 
-'use server'; // Can be used by server components/actions if needed, but primarily for client via calls
+'use server';
 
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, addDoc, doc, updateDoc, deleteDoc, orderBy, serverTimestamp, Timestamp } from 'firebase/firestore';
-import type { Todo } from '@/components/dashboard/todo-item'; // Assuming Todo type is defined here
+import type { Todo } from '@/components/dashboard/todo-item';
 
-export interface TodoData extends Omit<Todo, 'id'> {
+export interface TodoData extends Omit<Todo, 'id' | 'createdAt'> {
   userId: string;
-  createdAt: Timestamp;
-  dueDate?: Timestamp; // If you add due dates to todos later
+  createdAt: any; // For serverTimestamp
 }
 
-export interface TodoDocument extends TodoData {
+export interface TodoDocument extends Todo {
   id: string;
 }
 
@@ -27,18 +26,21 @@ export async function getTodos(userId: string): Promise<TodoDocument[]> {
     const q = query(
       collection(db, TODOS_COLLECTION),
       where('userId', '==', userId)
-      // orderBy('createdAt', 'desc') // This requires a composite index. Removing it to sort on the client/server after fetch.
     );
     const querySnapshot = await getDocs(q);
-    const todos = querySnapshot.docs.map(docSnap => ({
-      id: docSnap.id,
-      ...docSnap.data(),
-    })) as TodoDocument[];
+    const todos = querySnapshot.docs.map(docSnap => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        ...data,
+        createdAt: data.createdAt?.toDate().toISOString(), // Convert to string
+      } as TodoDocument;
+    });
 
     // Sort todos by creation date in descending order (newest first)
     todos.sort((a, b) => {
-      const timeA = a.createdAt?.toMillis() ?? 0;
-      const timeB = b.createdAt?.toMillis() ?? 0;
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return timeB - timeA;
     });
     
@@ -51,7 +53,7 @@ export async function getTodos(userId: string): Promise<TodoDocument[]> {
 }
 
 // Add a new todo for a user
-export async function addTodo(userId: string, todoData: Omit<Todo, 'id' | 'completed'>): Promise<string> {
+export async function addTodo(userId: string, todoData: Omit<Todo, 'id' | 'completed' | 'createdAt'>): Promise<string> {
   if (!userId) {
     throw new Error("User ID is required to add a todo.");
   }

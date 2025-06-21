@@ -5,21 +5,20 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Timestamp } from 'firebase/firestore'; // Import Timestamp if using it in the Todo type
 
 export interface Todo {
   id: string;
   title: string;
   importance: 'high' | 'medium' | 'low';
   completed: boolean;
-  userId?: string; // Optional: if you plan to pass it down or use it here
-  createdAt?: Timestamp | Date; // Optional: if using it for display or sorting directly in component
+  userId?: string;
+  createdAt?: string; // Changed from Timestamp | Date
 }
 
 interface TodoItemProps {
   todo: Todo;
-  onToggleComplete: (id: string) => void; // Prop signature remains the same
-  onDelete: (id: string) => void; // Prop signature remains the same
+  onToggleComplete: (id: string) => void;
+  onDelete: (id: string) => void;
 }
 
 const importanceColors = {

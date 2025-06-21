@@ -12,16 +12,20 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
+  Timestamp,
 } from 'firebase/firestore';
 import type { Deadline } from '@/components/dashboard/deadline-item';
 
 export interface DeadlineData extends Omit<Deadline, 'id'> {
   userId: string;
-  createdAt: any; // serverTimestamp
+  createdAt: any; // For serverTimestamp
 }
 
-export interface DeadlineDocument extends DeadlineData {
+// Serializable document for the client
+export interface DeadlineDocument extends Deadline {
     id: string;
+    userId: string;
+    createdAt: string;
 }
 
 const DEADLINES_COLLECTION = 'deadlines';
@@ -32,10 +36,14 @@ export async function getDeadlines(userId: string): Promise<DeadlineDocument[]> 
   try {
     const q = query(collection(db, DEADLINES_COLLECTION), where('userId', '==', userId));
     const querySnapshot = await getDocs(q);
-    const deadlines = querySnapshot.docs.map(docSnap => ({
-      id: docSnap.id,
-      ...docSnap.data(),
-    })) as DeadlineDocument[];
+    const deadlines = querySnapshot.docs.map(docSnap => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        ...data,
+        createdAt: data.createdAt?.toDate().toISOString(),
+      } as DeadlineDocument;
+    });
     
     // Sort by due date client-side
     deadlines.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
