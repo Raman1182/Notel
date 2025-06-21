@@ -127,7 +127,7 @@ export function AiAssistantBubble() {
       <Button
         variant="default"
         size="icon"
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-xl bg-primary hover:bg-primary/90 focus:ring-ring focus:ring-offset-2 animate-button-press active:animate-none"
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-xl bg-primary hover:bg-primary/90 focus:ring-ring focus:ring-offset-2 animate-pulse-subtle active:animate-none"
         onClick={toggleChatOpenState}
         aria-label={isOpen ? "Close AI Assistant" : "Open AI Assistant"}
       >
@@ -166,7 +166,7 @@ export function AiAssistantBubble() {
               </div>
             ))}
             {isLoading && (
-                 <div className="flex justify-start">
+                 <div className="flex justify-start animate-slide-up-fade">
                     <div className="max-w-[75%] rounded-lg px-4 py-3 text-sm bg-secondary text-secondary-foreground">
                         <div className="flex items-center space-x-1.5">
                             <span className="h-2 w-2 bg-muted-foreground rounded-full animate-wave-dot-1"></span>

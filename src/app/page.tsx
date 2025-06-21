@@ -51,7 +51,19 @@ export default function DashboardPage() {
   const [isDataLoading, setIsDataLoading] = useState(true);
 
   const [showDeadlineLimitAlert, setShowDeadlineLimitAlert] = useState(false);
+  const [welcomeMessage, setWelcomeMessage] = useState("Welcome back");
   const { toast } = useToast();
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) {
+        setWelcomeMessage("Good morning");
+    } else if (hour < 18) {
+        setWelcomeMessage("Good afternoon");
+    } else {
+        setWelcomeMessage("Good evening");
+    }
+  }, []);
 
   const loadDashboardData = useCallback(async (userId: string) => {
     setIsDataLoading(true);
@@ -237,7 +249,7 @@ export default function DashboardPage() {
         <main className="flex-1 p-6 md:p-8 overflow-y-auto custom-scrollbar">
           <div className="mb-8 text-center">
             <h1 className="text-3xl md:text-4xl font-bold font-headline text-foreground tracking-tight">
-              Welcome back, {user.displayName?.split(' ')[0] || 'Learner'}!
+              {welcomeMessage}, {user.displayName?.split(' ')[0] || 'Learner'}!
             </h1>
             <p className="text-lg text-muted-foreground mt-2">
               {user.emailVerified ? "Your space for focused learning and peak productivity." : "Please check your email to verify your account."}
@@ -329,7 +341,12 @@ export default function DashboardPage() {
 
               <WidgetCard title="Recent Study Sessions" className="lg:col-span-3" interactive={false}>
                  {recentSessions.length === 0 && (
-                   <p className="text-sm text-muted-foreground text-center py-4">No recent study sessions recorded yet.</p>
+                   <div className="text-center py-8">
+                     <p className="text-muted-foreground mb-4">No recent study sessions recorded yet.</p>
+                      <Button asChild>
+                        <Link href="/study/launch">Start Your First Session</Link>
+                      </Button>
+                   </div>
                  )}
                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {recentSessions.map(session => (

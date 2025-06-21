@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { AppHeader } from '@/components/shared/app-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BookOpen, Clock, FileText, Inbox, Search } from 'lucide-react';
+import { ArrowRight, BookOpen, Clock, FileText, Inbox, Search, Loader2 } from 'lucide-react';
 import type { SessionData } from '@/app/study/launch/page';
 import { getSessions, type SessionDocumentWithId } from '@/services/session-service';
 import { useAuth } from '@/contexts/auth-context';
@@ -40,7 +40,7 @@ function timeAgo(timestamp: number): string {
   if (minutes === 1) return '1 minute ago';
   if (minutes < 60) return `${minutes} minutes ago`;
   if (hours === 1) return '1 hour ago';
-  if (hours < 24) return `${hours} hours ago`;
+  if (hours < 24) return `${hours} hours ago';
   if (days === 1) return 'Yesterday';
   const date = new Date(timestamp);
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -119,7 +119,7 @@ const NotesSubjectListingPage: NextPage = () => {
 
         {isLoading && (
           <div className="flex justify-center items-center h-64">
-            <div className="minimal-spinner"></div>
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
             <p className="ml-3 text-muted-foreground">Loading your study journey...</p>
           </div>
         )}
