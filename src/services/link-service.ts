@@ -11,13 +11,13 @@ import {
   doc,
   deleteDoc,
   serverTimestamp,
-  orderBy,
+  Timestamp,
 } from 'firebase/firestore';
 import type { SavedLink } from '@/components/dashboard/saved-link-item';
 
 export interface LinkData extends Omit<SavedLink, 'id'> {
   userId: string;
-  createdAt: any; // serverTimestamp
+  createdAt: Timestamp;
 }
 
 export interface LinkDocument extends LinkData {
@@ -32,14 +32,23 @@ export async function getLinks(userId: string): Promise<LinkDocument[]> {
   try {
     const q = query(
         collection(db, LINKS_COLLECTION), 
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc')
+        where('userId', '==', userId)
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(docSnap => ({
+    const links = querySnapshot.docs.map(docSnap => ({
       id: docSnap.id,
       ...docSnap.data(),
     })) as LinkDocument[];
+
+    // Sort links by creation date in descending order (newest first)
+    links.sort((a, b) => {
+      const timeA = a.createdAt?.toMillis() ?? 0;
+      const timeB = b.createdAt?.toMillis() ?? 0;
+      return timeB - timeA;
+    });
+    
+    return links;
+
   } catch (error) {
     console.error("Error fetching links:", error);
     throw new Error("Failed to fetch links. An index might be required.");
