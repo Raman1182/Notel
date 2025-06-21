@@ -1,3 +1,4 @@
+
 'use client';
 
 import { UserAuthForm } from '@/components/auth/user-auth-form';
