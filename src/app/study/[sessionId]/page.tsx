@@ -23,6 +23,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { FlashcardViewer } from '@/components/study/flashcard-viewer';
 import { QuizTaker } from '@/components/study/quiz-taker';
 import { Card, CardHeader as UiCardHeader, CardContent as UiCardContent, CardTitle as UiCardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+
 
 // Debounce utility
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
@@ -93,7 +95,10 @@ function StudySessionPageContent() {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [currentNoteContent, setCurrentNoteContent] = useState('');
   
-  const [isReferencePanelOpen, setIsReferencePanelOpen] = useState(false);
+  const [referencePanelContent, setReferencePanelContent] = useState<'previous-notes' | 'pdf' | null>(null);
+  const [isFetchingReference, setIsFetchingReference] = useState(false);
+  const [historicalNotesForPanel, setHistoricalNotesForPanel] = useState<FindNoteConnectionsInput['historicalNotes']>([]);
+  
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [parsedAiContent, setParsedAiContent] = useState<any>(null); 
   const [aiGeneratedContentType, setAiGeneratedContentType] = useState<'flashcards' | 'quiz' | 'connections' | null>(null);
@@ -295,6 +300,29 @@ function StudySessionPageContent() {
       setIsAiProcessing(false);
     }
   };
+  
+  const handleToggleReferencePanel = async (type: 'previous-notes' | 'pdf') => {
+    if (referencePanelContent === type) {
+      setReferencePanelContent(null);
+      return;
+    }
+
+    setReferencePanelContent(type);
+
+    if (type === 'previous-notes' && user) {
+      setIsFetchingReference(true);
+      try {
+        const notes = await getHistoricalNoteSnippets(user.uid, sessionId);
+        setHistoricalNotesForPanel(notes);
+      } catch (e) {
+        toast({ title: "Error", description: "Could not load previous notes.", variant: "destructive" });
+        setReferencePanelContent(null);
+      } finally {
+        setIsFetchingReference(false);
+      }
+    }
+  };
+
 
   if (isLoading || !sessionData) {
     return (
@@ -392,8 +420,18 @@ function StudySessionPageContent() {
         <SessionSidebar sessionSubject={sessionData.subject || 'Session'} treeData={treeData} onSelectNode={handleNoteSelect} activeNodeId={sidebarActiveNodeIdProp} onAddNode={addNodeToTree} />
         <main className="flex-1 flex flex-col p-4 md:p-6 overflow-y-auto relative custom-scrollbar bg-[#0A0A0A]">
           <div className="flex items-center justify-between mb-4">
-            <div className="text-sm text-muted-foreground truncate max-w-[calc(100%-300px)]">
+            <div className="text-sm text-muted-foreground truncate max-w-[calc(100%-350px)]">
                 {sessionData.subject} {activeNoteId && currentActiveNode ? `/ ${currentActiveNode.name}` : ''}
+            </div>
+             <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm" onClick={() => handleToggleReferencePanel('previous-notes')} className="hover:bg-primary/10">
+                    <History className="h-4 w-4 mr-2" />
+                    Previous Notes
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleToggleReferencePanel('pdf')} className="hover:bg-primary/10">
+                    <Paperclip className="h-4 w-4 mr-2" />
+                    Add PDF
+                </Button>
             </div>
           </div>
           <div className="flex flex-1 gap-4 min-h-0">
@@ -428,7 +466,54 @@ function StudySessionPageContent() {
                 </div>
               )}
             </div>
-            {isReferencePanelOpen && <div className="w-[35%] max-w-[500px] h-full bg-[#0F0F0F] border border-white/10 p-0 rounded-lg flex flex-col overflow-hidden custom-scrollbar shadow-lg"></div>}
+            
+            {referencePanelContent && (
+              <div className="w-[35%] max-w-[500px] h-full bg-[#0F0F0F] border border-white/10 p-0 rounded-lg flex flex-col overflow-hidden custom-scrollbar shadow-lg animate-slide-in-from-right">
+                <div className="flex items-center justify-between p-2 border-b border-white/10">
+                  <h3 className="text-base font-semibold ml-2">
+                    {referencePanelContent === 'previous-notes' && 'Previous Notes'}
+                    {referencePanelContent === 'pdf' && 'PDF Reference'}
+                  </h3>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReferencePanelContent(null)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <ScrollArea className="flex-1">
+                  <div className="p-3">
+                    {isFetchingReference && (
+                      <div className="flex items-center justify-center h-40">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      </div>
+                    )}
+                    {!isFetchingReference && referencePanelContent === 'pdf' && (
+                      <div className="text-center text-muted-foreground p-4">
+                        <p className="font-semibold">PDF Viewer Coming Soon</p>
+                        <p className="text-xs mt-1">This feature will allow you to upload and view PDFs alongside your notes.</p>
+                      </div>
+                    )}
+                    {!isFetchingReference && referencePanelContent === 'previous-notes' && (
+                      <div className="space-y-3">
+                        {historicalNotesForPanel.length > 0 ? (
+                          historicalNotesForPanel.map(note => {
+                            const [noteSessionId] = note.noteId.split('__');
+                            return (
+                              <div key={note.noteId} className="p-2.5 bg-white/5 rounded-md border border-white/10 hover:border-primary/50 transition-colors">
+                                <Link href={`/notes/${noteSessionId}/viewer?subject=${encodeURIComponent(note.subject || '')}`} target="_blank" className="font-semibold text-sm text-primary hover:underline">{note.title}</Link>
+                                <p className="text-xs text-muted-foreground mt-0.5">{note.subject}</p>
+                                <p className="text-xs text-foreground/80 mt-1.5 line-clamp-3">{note.contentSnippet}</p>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-center text-muted-foreground p-4">No previous relevant notes found.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+
           </div>
           <div className="mt-3 text-xs text-muted-foreground text-right border-t border-white/10 pt-2 flex justify-between items-center">
               <span>Word Count: {wordCount}</span>

@@ -120,6 +120,10 @@ export default {
           '0%, 100%': { opacity: '1', transform: 'scale(1)' },
           '50%': { opacity: '0.75', transform: 'scale(1.02)' }, // Made it slightly more visible
         },
+        'slide-in-from-right': {
+            '0%': { transform: 'translateX(100%)', opacity: '0' },
+            '100%': { transform: 'translateX(0)', opacity: '1' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.3s ease-out',
@@ -131,6 +135,7 @@ export default {
         'wave-dot-3': 'wave-dots 1s infinite 0.4s',
         'gradient-shimmer': 'gradient-shimmer 3s ease infinite',
         'pulse-subtle': 'pulse-subtle 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite', // Slightly slower
+        'slide-in-from-right': 'slide-in-from-right 0.3s ease-out',
       },
     },
   },
