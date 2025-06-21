@@ -75,15 +75,25 @@ export async function getSession(sessionId: string): Promise<SessionDocumentWith
 export async function getSessions(userId: string, count?: number): Promise<SessionDocumentWithId[]> {
   if (!userId) return [];
   try {
-    const sessionQuery = count 
-        ? query(collection(db, SESSIONS_COLLECTION), where('userId', '==', userId), orderBy('startTime', 'desc'), limit(count))
-        : query(collection(db, SESSIONS_COLLECTION), where('userId', '==', userId), orderBy('startTime', 'desc'));
+    // Query without ordering to avoid needing a composite index.
+    const sessionQuery = query(collection(db, SESSIONS_COLLECTION), where('userId', '==', userId));
     
     const querySnapshot = await getDocs(sessionQuery);
-    return querySnapshot.docs.map(docSnap => ({
+    const sessions = querySnapshot.docs.map(docSnap => ({
       id: docSnap.id,
       ...docSnap.data(),
     })) as SessionDocumentWithId[];
+
+    // Sort in-memory after fetching.
+    sessions.sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
+
+    // If a count is specified, return only that many of the most recent sessions.
+    if (count) {
+      return sessions.slice(0, count);
+    }
+    
+    return sessions;
+    
   } catch (error) {
     console.error("Error fetching sessions:", error);
     // This might fail if the composite index doesn't exist yet.
@@ -99,14 +109,19 @@ export async function getSessionsBySubject(userId: string, subject: string): Pro
         const q = query(
             collection(db, SESSIONS_COLLECTION),
             where('userId', '==', userId),
-            where('subject', '==', subject),
-            orderBy('startTime', 'desc')
+            where('subject', '==', subject)
+            // Removed: orderBy('startTime', 'desc') to avoid index requirement.
         );
         const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => ({
+        const sessions = querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         })) as SessionDocumentWithId[];
+
+        // Sort in-memory after fetching
+        sessions.sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
+
+        return sessions;
     } catch (error) {
         console.error("Error fetching sessions by subject:", error);
         throw new Error("Failed to fetch sessions. A Firestore index might be required.");
