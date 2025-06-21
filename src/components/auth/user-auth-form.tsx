@@ -96,6 +96,7 @@ export function UserAuthForm() {
               autoComplete="email"
               autoCorrect="off"
               disabled={!!isLoading}
+              suppressHydrationWarning
               {...register('email')}
             />
             {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
