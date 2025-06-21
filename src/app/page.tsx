@@ -7,7 +7,6 @@ import { AppHeader } from '@/components/shared/app-header';
 import { StudyStreakWidget } from '@/components/dashboard/study-streak-widget';
 import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
 import { AiAssistantBubble } from '@/components/ai-assistant/ai-assistant-bubble';
-import { WidgetCard } from '@/components/dashboard/widget-card';
 import { AddDeadlineDialog } from '@/components/dashboard/add-deadline-dialog';
 import { AddTodoDialog } from '@/components/dashboard/add-todo-dialog';
 import { AddLinkDialog } from '@/components/dashboard/add-link-dialog';
@@ -16,9 +15,8 @@ import { DeadlineItem, type Deadline } from '@/components/dashboard/deadline-ite
 import { TodoItem, type Todo } from '@/components/dashboard/todo-item';
 import { SavedLinkItem, type SavedLink } from '@/components/dashboard/saved-link-item';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, CalendarClock, ListTodo, BookOpen, LinkIcon, Loader2, LogIn, Sparkles } from 'lucide-react';
+import { PlusCircle, BookOpen, Loader2, LogIn, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { SessionData } from '@/app/study/launch/page';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { processUrlFlow, type ProcessUrlOutput } from '@/ai/flows/process-url-flow';
@@ -28,6 +26,9 @@ import { getDeadlines, addDeadline as addDeadlineService, updateDeadline as upda
 import { getLinks, addLink as addLinkService, deleteLink as deleteLinkService, type LinkDocument } from '@/services/link-service';
 import { getSessions, type SessionDocumentWithId } from '@/services/session-service';
 import { useRouter } from 'next/navigation';
+import { WidgetCard } from '@/components/dashboard/widget-card';
+import { AiSuggestionWidget } from '@/components/dashboard/ai-suggestion-widget';
+import { StudyAnalyticsWidget } from '@/components/dashboard/study-analytics-widget';
 
 
 const MAX_DEADLINES = 7;
@@ -72,7 +73,7 @@ export default function DashboardPage() {
         getTodos(userId),
         getDeadlines(userId),
         getLinks(userId),
-        getSessions(userId, 3) // Fetch 3 most recent sessions
+        getSessions(userId, 3)
       ]);
       setTodos(firestoreTodos);
       setDeadlines(firestoreDeadlines);
@@ -90,7 +91,6 @@ export default function DashboardPage() {
     if (user) {
       loadDashboardData(user.uid);
     } else if (!authLoading) {
-      // Clear data if user logs out
       setTodos([]);
       setDeadlines([]);
       setSavedLinks([]);
@@ -106,8 +106,7 @@ export default function DashboardPage() {
       return;
     }
     try {
-      const newDeadlineId = await addDeadlineService(user.uid, newDeadline);
-      // Optimistically update UI or re-fetch
+      await addDeadlineService(user.uid, newDeadline);
       await loadDashboardData(user.uid);
       toast({ title: "Deadline Added", description: `"${newDeadline.title}" successfully added.` });
     } catch(e) {
@@ -140,8 +139,8 @@ export default function DashboardPage() {
   const handleAddTodo = async (newTodoData: Omit<Todo, 'id' | 'completed'>) => {
     if (!user) return;
     try {
-      const newTodoId = await addTodoService(user.uid, newTodoData);
-      await loadDashboardData(user.uid); // Re-fetch to get the latest list with server timestamp
+      await addTodoService(user.uid, newTodoData);
+      await loadDashboardData(user.uid);
       toast({ title: "To-Do Added", description: `"${newTodoData.title}" added to your list.` });
     } catch (error) {
       console.error("Failed to add todo:", error);
@@ -176,7 +175,7 @@ export default function DashboardPage() {
   const handleAddLink = async (newLink: Omit<SavedLink, 'id'>) => {
     if (!user) return;
     try {
-      const newLinkId = await addLinkService(user.uid, newLink);
+      await addLinkService(user.uid, newLink);
       await loadDashboardData(user.uid);
       toast({ title: "Link Saved", description: `"${newLink.title}" added to your links.` });
     } catch (e) {
@@ -264,6 +263,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <StudyStreakWidget />
               <QuickActionsWidget />
+              <AiSuggestionWidget />
               
               <WidgetCard title="Upcoming Deadlines" className="lg:col-span-1" interactive={false}>
                 <div className="flex justify-end mb-3 -mt-2">
@@ -295,7 +295,7 @@ export default function DashboardPage() {
                 )}
               </WidgetCard>
 
-              <WidgetCard title="To-Do List" className="md:col-span-2 lg:col-span-1" interactive={false}>
+              <WidgetCard title="To-Do List" className="lg:col-span-1" interactive={false}>
                 <div className="flex justify-end mb-3 -mt-2">
                   <Button variant="ghost" size="sm" onClick={() => setShowAddTodoDialog(true)} className="text-primary hover:text-primary/80">
                     <PlusCircle className="h-4 w-4 mr-1" /> Add To-Do
@@ -304,18 +304,16 @@ export default function DashboardPage() {
                 {todos.length === 0 && (
                    <p className="text-sm text-muted-foreground text-center py-4">Your to-do list is empty. Add some tasks!</p>
                 )}
-                {todos.length > 0 && (
-                  <ScrollArea className="h-[260px] pr-2">
-                    <div className="grid grid-cols-1 gap-3">
-                        {todos.map(todo => (
-                          <TodoItem key={todo.id} todo={todo} onToggleComplete={toggleTodoComplete} onDelete={deleteTodo} />
-                        ))}
-                      </div>
-                  </ScrollArea>
-                )}
+                <ScrollArea className="h-[260px] pr-2">
+                  <div className="grid grid-cols-1 gap-3">
+                      {todos.map(todo => (
+                        <TodoItem key={todo.id} todo={todo} onToggleComplete={toggleTodoComplete} onDelete={deleteTodo} />
+                      ))}
+                    </div>
+                </ScrollArea>
               </WidgetCard>
               
-              <WidgetCard title="Saved Links" className="md:col-span-2 lg:col-span-1" interactive={false}>
+              <WidgetCard title="Saved Links" className="lg:col-span-1" interactive={false}>
                 <div className="flex justify-end mb-3 -mt-2">
                   <Button variant="ghost" size="sm" onClick={() => setShowAddLinkDialog(true)} className="text-primary hover:text-primary/80">
                     <PlusCircle className="h-4 w-4 mr-1" /> Add Link
@@ -338,6 +336,10 @@ export default function DashboardPage() {
                     </div>
                 </ScrollArea>
               </WidgetCard>
+
+              <div className="lg:col-span-3">
+                  <StudyAnalyticsWidget />
+              </div>
 
               <WidgetCard title="Recent Study Sessions" className="lg:col-span-3" interactive={false}>
                  {recentSessions.length === 0 && (

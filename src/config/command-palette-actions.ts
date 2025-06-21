@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { Home, BookOpen, Lightbulb, Settings, FileText, ListChecks, Briefcase, MessageCircle, PlayCircle, Wand2, CalendarClock } from 'lucide-react'; 
+import { Home, BookOpen, Lightbulb, Settings, FileText, ListChecks, Briefcase, MessageCircle, PlayCircle, Wand2, CalendarClock, BarChart3, Trophy } from 'lucide-react'; 
 
 export interface CommandAction {
   id: string;
@@ -45,6 +45,22 @@ export const commandPaletteActions: CommandAction[] = [
     keywords: ['calendar', 'schedule', 'deadlines', 'plan', 'events'],
     href: '/calendar',
   },
+   {
+    id: 'analytics',
+    name: 'View Analytics',
+    section: 'Navigation',
+    icon: BarChart3,
+    keywords: ['analytics', 'stats', 'progress', 'data', 'charts'],
+    href: '/analytics',
+  },
+  {
+    id: 'achievements',
+    name: 'View Achievements',
+    section: 'Navigation',
+    icon: Trophy,
+    keywords: ['achievements', 'gamification', 'badges', 'awards', 'progress'],
+    href: '/achievements',
+  },
   {
     id: 'tasks',
     name: 'Tasks & Deadlines (Dashboard)', 
@@ -53,15 +69,6 @@ export const commandPaletteActions: CommandAction[] = [
     keywords: ['todo', 'tasks', 'assignments', 'checklist', 'deadlines', 'dashboard tasks'],
     href: '/#tasks', 
   },
-  // Removing Resources for now as its page is not yet implemented
-  // {
-  //   id: 'resources',
-  //   name: 'Resources',
-  //   section: 'Navigation',
-  //   icon: Briefcase, 
-  //   keywords: ['links', 'resources', 'materials', 'library'],
-  //   href: '/resources', 
-  // },
   {
     id: 'open-ai-assistant-chat', 
     name: 'Open AI Assistant (Chat)', 

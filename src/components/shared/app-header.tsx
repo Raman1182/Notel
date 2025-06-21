@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Cog, Menu, Minus, Plus, Sparkles, Home, BookOpen, FileText, ListChecks, Briefcase, MessageCircle, Target, Settings as SettingsIcon, Flame, Search, PlayCircle, CalendarClock, LogOut, User as UserIcon, LogIn } from 'lucide-react';
+import { Cog, Menu, Minus, Plus, Sparkles, Home, BookOpen, FileText, ListChecks, Briefcase, MessageCircle, Target, Settings as SettingsIcon, Flame, Search, PlayCircle, CalendarClock, LogOut, User as UserIcon, LogIn, Trophy, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
@@ -101,6 +101,16 @@ export function AppHeader() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/analytics" className="w-full flex items-center">
+                        <BarChart3 className="mr-2 h-4 w-4" /> Analytics
+                    </Link>
+                </DropdownMenuItem>
+                 <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/achievements" className="w-full flex items-center">
+                        <Trophy className="mr-2 h-4 w-4" /> Achievements
+                    </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild className="cursor-pointer">
                     <Link href="/settings" className="w-full flex items-center">
                         <Cog className="mr-2 h-4 w-4" /> App Settings
