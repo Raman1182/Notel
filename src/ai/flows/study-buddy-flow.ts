@@ -8,7 +8,7 @@
  * - StudyBuddyOutput - The return type for the studyBuddyFlow function.
  */
 
-import { ai, googleAI } from '@/ai/genkit';
+import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const StudyBuddyInputSchema = z.object({
@@ -18,15 +18,8 @@ const StudyBuddyInputSchema = z.object({
 });
 export type StudyBuddyInput = z.infer<typeof StudyBuddyInputSchema>;
 
-const CitationSchema = z.object({
-  url: z.string().url().describe("The URL of the source."),
-  title: z.string().describe("The title of the source page."),
-  publication: z.string().optional().describe("The publication or website name."),
-});
-
 const StudyBuddyOutputSchema = z.object({
-  response: z.string().describe('The AI study buddy\'s response to the user. It may contain citation markers like [1], [2].'),
-  citations: z.array(CitationSchema).optional().describe("An array of web sources used to generate the response."),
+  response: z.string().describe('The AI study buddy\'s response to the user.'),
 });
 export type StudyBuddyOutput = z.infer<typeof StudyBuddyOutputSchema>;
 
@@ -38,14 +31,7 @@ const prompt = ai.definePrompt({
   name: 'studyBuddyPrompt',
   input: { schema: StudyBuddyInputSchema },
   output: { schema: StudyBuddyOutputSchema },
-  tools: [googleAI.googleSearch],
   prompt: `You are LearnLog AI, a friendly, encouraging, and highly knowledgeable study buddy. Your primary goal is to help students understand concepts, plan their studies, and answer their questions effectively across ALL academic subjects.
-
-When the user asks a question that requires factual information or up-to-date knowledge, you **must** use your web search tool to find answers from reliable online sources.
-
-When you use information from a web search, you MUST cite your sources.
-- In your 'response' text, add citation markers, like [1], [2], at the end of the sentence or fact that came from a source.
-- Populate the 'citations' array with the corresponding sources. For each source, provide the full URL and the title of the page.
 
 Current user query: "{{{query}}}"
 

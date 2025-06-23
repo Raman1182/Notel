@@ -16,7 +16,6 @@ interface Message {
   id: string;
   type: 'user' | 'ai' | 'system';
   text: string;
-  citations?: StudyBuddyOutput['citations'];
 }
 
 export function AiAssistantBubble() {
@@ -92,7 +91,6 @@ export function AiAssistantBubble() {
         id: (Date.now() + 1).toString(), 
         type: 'ai', 
         text: result.response,
-        citations: result.citations,
       };
       setMessages(prev => [...prev, aiMessage]);
 
@@ -144,7 +142,7 @@ export function AiAssistantBubble() {
               <MessageSquare className="h-5 w-5 text-primary" />
               LearnLog AI
             </DialogTitle>
-             <DialogDescription className="text-xs">Your conversational study buddy with web search.</DialogDescription>
+             <DialogDescription className="text-xs">Your conversational study buddy.</DialogDescription>
           </DialogHeader>
           
           <ScrollArea ref={scrollAreaRef} className="flex-grow p-3 md:p-4">
@@ -167,25 +165,6 @@ export function AiAssistantBubble() {
                         <span key={index}>{line}{index < msg.text.split('\n').length - 1 && <br />}</span>
                     ))}
                     </div>
-                    {msg.type === 'ai' && msg.citations && msg.citations.length > 0 && (
-                        <div className="mt-2 text-xs w-full max-w-[85%]">
-                            <p className="font-semibold mb-1 text-muted-foreground">Sources:</p>
-                            <div className="space-y-1">
-                            {msg.citations.map((citation, index) => (
-                                <Link
-                                    key={index}
-                                    href={citation.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-start gap-1.5 text-primary/80 hover:text-primary hover:underline"
-                                >
-                                <LinkIcon className="h-3 w-3 mt-0.5 shrink-0" />
-                                <span className="truncate" title={citation.title}>{citation.title}</span>
-                                </Link>
-                            ))}
-                            </div>
-                        </div>
-                    )}
                 </div>
                 ))}
                 {isLoading && (
