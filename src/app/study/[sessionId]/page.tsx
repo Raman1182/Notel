@@ -432,8 +432,6 @@ function StudySessionPageContent() {
   };
   
   const handleAddLocalResource = (resourceName: string) => {
-    if (!sessionId || !sessionData) return;
-
     setTreeData(prevTree => {
         const newTree = [...prevTree];
         const rootNode = newTree[0];
@@ -700,7 +698,7 @@ function StudySessionPageContent() {
                         </Button>
                       </div>
                       <iframe
-                        src={sessionData.pdfUrl}
+                        src={`https://docs.google.com/gview?url=${encodeURIComponent(sessionData.pdfUrl)}&embedded=true`}
                         title="PDF Viewer"
                         className="w-full h-full border-0 flex-1"
                       />
