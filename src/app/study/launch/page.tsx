@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AppHeader } from '@/components/shared/app-header';
-import { Sparkles, Edit3, Clock, Music2, Play, BookOpen, Loader2, RadioTower } from 'lucide-react';
+import { Sparkles, Edit3, Clock, Play, BookOpen, Loader2, RadioTower } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -28,20 +28,12 @@ const durationOptionsData = [
   { label: '60 min', value: 60, description: 'Extended Study' },
 ];
 
-const ambientSoundsData = [
-  { name: 'None', icon: <Music2 className="h-4 w-4 mr-2 opacity-50" /> },
-  { name: 'Rain', icon: <Music2 className="h-4 w-4 mr-2" /> },
-  { name: 'Cafe', icon: <Music2 className="h-4 w-4 mr-2" /> },
-  { name: 'Library', icon: <Music2 className="h-4 w-4 mr-2" /> },
-];
-
 export type TimerMode = 'normal' | 'pomodoro_25_5';
 
 export interface SessionData {
   sessionId: string; // client-side only ID
   subject: string;
   duration: number; // in minutes
-  ambientSound: string;
   startTime: number; // timestamp
   timerMode: TimerMode;
   pomodoroCycle?: { workMinutes: number; breakMinutes: number };
@@ -53,8 +45,7 @@ const StudySessionLauncherPage: NextPage = () => {
   const { toast } = useToast();
 
   const [subject, setSubject] = useState('');
-  const [selectedDuration, setSelectedDuration] = useState<number>(25); 
-  const [selectedSound, setSelectedSound] = useState<string>('None');
+  const [selectedDuration, setSelectedDuration] = useState<number>(25);
   const [timerMode, setTimerMode] = useState<TimerMode>('normal');
   const [greeting, setGreeting] = useState("Ready to Start Your Study Session?");
   const [isStarting, setIsStarting] = useState(false);
@@ -76,11 +67,9 @@ const StudySessionLauncherPage: NextPage = () => {
     setIsStarting(true);
     const sessionSubject = subject.trim() === '' ? `Study Session ${new Date().toLocaleDateString()}` : subject.trim();
     
-    const sessionData: SessionData = {
-      sessionId: `client_${Date.now()}`, // Temporary ID
+    const sessionData: Omit<SessionData, 'sessionId'> = {
       subject: sessionSubject,
-      duration: selectedDuration, 
-      ambientSound: selectedSound,
+      duration: selectedDuration,
       startTime: Date.now(),
       timerMode: timerMode,
     };
@@ -207,26 +196,6 @@ const StudySessionLauncherPage: NextPage = () => {
               <span className="text-lg font-semibold">Custom</span>
               <span className="text-xs opacity-80">Enter time</span>
             </Button>
-          </div>
-        </CardWrapper>
-        
-        <CardWrapper title="Ambient Sounds (Optional)" icon={<Music2 className="h-5 w-5 mr-2 text-primary" />} className="hidden md:block">
-          <div className="flex flex-wrap justify-center gap-3">
-            {ambientSoundsData.map((sound) => (
-              <Button
-                key={sound.name}
-                variant={selectedSound === sound.name ? 'default' : 'outline'}
-                onClick={() => setSelectedSound(sound.name)}
-                className={cn(
-                  "border-white/20 min-w-[100px]",
-                  selectedSound !== sound.name && "bg-white/10 hover:bg-primary/20 text-foreground-opacity-70 hover:text-foreground",
-                  selectedSound === sound.name && "bg-primary text-primary-foreground hover:bg-primary/90"
-                )}
-                disabled={isStarting}
-              >
-                {sound.icon} {sound.name}
-              </Button>
-            ))}
           </div>
         </CardWrapper>
 

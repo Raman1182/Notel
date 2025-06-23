@@ -112,6 +112,8 @@ function StudySessionPageContent() {
   const [showEndSessionDialog, setShowEndSessionDialog] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<string | null>(null);
   const [showAddPdfDialog, setShowAddPdfDialog] = useState(false);
+  const [temporaryPdfUrl, setTemporaryPdfUrl] = useState<string | null>(null);
+
 
   // Debounced save functions for Firestore
   const saveTreeToFirestore = useCallback(debounce((newTree: TreeNode[]) => {
@@ -125,6 +127,15 @@ function StudySessionPageContent() {
   const saveActualDurationToFirestore = useCallback((duration: number) => {
       if (sessionId) updateSession(sessionId, { actualDuration: duration });
   }, [sessionId]);
+
+  // Effect to clean up temporary local PDF URL
+  useEffect(() => {
+    return () => {
+      if (temporaryPdfUrl) {
+        URL.revokeObjectURL(temporaryPdfUrl);
+      }
+    };
+  }, [temporaryPdfUrl]);
 
   useEffect(() => {
     if (!sessionId || !user) {
@@ -420,6 +431,10 @@ function StudySessionPageContent() {
   const handleAttachUrl = async (url: string) => {
     if (!sessionId || !sessionData) return;
     try {
+        if (temporaryPdfUrl) { // Clear local PDF if setting a permanent URL
+          URL.revokeObjectURL(temporaryPdfUrl);
+          setTemporaryPdfUrl(null);
+        }
         await updateSession(sessionId, { pdfUrl: url });
         setSessionData(prev => prev ? { ...prev, pdfUrl: url } : null);
         toast({ title: "PDF Attached", description: "The PDF can now be viewed in the reference panel." });
@@ -430,6 +445,22 @@ function StudySessionPageContent() {
         toast({ title: "Error", description: "Could not attach the PDF.", variant: "destructive" });
     }
   };
+  
+  const handleAttachLocalFile = (file: File) => {
+    if (temporaryPdfUrl) {
+        URL.revokeObjectURL(temporaryPdfUrl);
+    }
+    if (sessionData?.pdfUrl) {
+      // Clear permanent URL visually for this session if a local file is loaded
+      setSessionData(prev => prev ? { ...prev, pdfUrl: undefined } : null);
+    }
+    const newUrl = URL.createObjectURL(file);
+    setTemporaryPdfUrl(newUrl);
+    setReferencePanelContent('pdf');
+    setShowAddPdfDialog(false);
+    toast({ title: "Local PDF Loaded", description: "This PDF is for temporary viewing and will not be saved." });
+  };
+
 
   if (isLoading || !sessionData) {
     return (
@@ -458,6 +489,8 @@ function StudySessionPageContent() {
   let saveStatus = 'Saved'; // Default to saved since writes are debounced
   
   const sidebarActiveNodeIdProp = activeNoteId;
+  const pdfToDisplay = temporaryPdfUrl || (sessionData.pdfUrl ? `https://docs.google.com/gview?url=${encodeURIComponent(sessionData.pdfUrl)}&embedded=true` : null);
+
 
   return (
     <div className="flex flex-col h-screen bg-[#0A0A0A] text-foreground overflow-hidden">
@@ -540,6 +573,7 @@ function StudySessionPageContent() {
         open={showAddPdfDialog}
         onOpenChange={setShowAddPdfDialog}
         onSaveUrl={handleAttachUrl}
+        onAttachLocalFile={handleAttachLocalFile}
         currentUrl={sessionData?.pdfUrl}
       />
 
@@ -565,7 +599,7 @@ function StudySessionPageContent() {
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => handleToggleReferencePanel('pdf')} className="hover:bg-primary/10">
                     <Paperclip className="h-4 w-4 mr-2" />
-                    {sessionData.pdfUrl ? 'View PDF' : 'Attach PDF'}
+                    {pdfToDisplay ? 'View PDF' : 'Attach PDF'}
                 </Button>
             </div>
           </div>
@@ -626,7 +660,7 @@ function StudySessionPageContent() {
                             const [noteSessionId] = note.noteId.split('__');
                             return (
                               <div key={note.noteId} className="p-2.5 bg-white/5 rounded-md border border-white/10 hover:border-primary/50 transition-colors">
-                                <Link href={`/notes/${noteSessionId}/viewer?subject=${encodeURIComponent(note.subject || '')}`} target="_blank" className="font-semibold text-sm text-primary hover:underline">{note.title}</Link>
+                                <Link href={`/notes/${noteSessionId}/viewer?subject=${encodeURIComponent(note.subject || '')}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-sm text-primary hover:underline">{note.title}</Link>
                                 <p className="text-xs text-muted-foreground mt-0.5">{note.subject}</p>
                                 <p className="text-xs text-foreground/80 mt-1.5 line-clamp-3">{note.contentSnippet}</p>
                               </div>
@@ -653,24 +687,26 @@ function StudySessionPageContent() {
                   </Button>
                 </div>
                 <div className="flex-1 flex flex-col">
-                  {sessionData.pdfUrl ? (
+                  {pdfToDisplay ? (
                     <>
                       <div className="p-2 border-b border-white/10 flex items-center justify-between">
                         <div>
                           <Button variant="link" size="sm" onClick={() => setShowAddPdfDialog(true)}>
-                              Change PDF URL
+                              {sessionData.pdfUrl ? 'Change URL' : 'Change File'}
                           </Button>
-                          <Button variant="link" size="sm" asChild>
-                            <a href={sessionData.pdfUrl} target="_blank" rel="noopener noreferrer">
-                                Open in new tab
-                            </a>
-                          </Button>
+                          {sessionData.pdfUrl &&
+                            <Button variant="link" size="sm" asChild>
+                                <a href={sessionData.pdfUrl} target="_blank" rel="noopener noreferrer">
+                                    Open in new tab
+                                </a>
+                            </Button>
+                          }
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground px-3 py-1 bg-background/50">Note: PDF must be publicly accessible to be viewed here.</p>
+                      {sessionData.pdfUrl && <p className="text-xs text-muted-foreground px-3 py-1 bg-background/50">Note: PDF must be publicly accessible to be viewed here.</p>}
                       <iframe
-                        key={sessionData.pdfUrl}
-                        src={`https://docs.google.com/gview?url=${encodeURIComponent(sessionData.pdfUrl)}&embedded=true`}
+                        key={pdfToDisplay}
+                        src={pdfToDisplay}
                         title="PDF Viewer"
                         className="w-full h-full border-0 flex-1"
                       />
@@ -679,7 +715,7 @@ function StudySessionPageContent() {
                     <div className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground p-4">
                         <FileTextIcon className="h-12 w-12 mb-4 opacity-50" />
                         <p className="font-semibold text-lg">No PDF Attached</p>
-                        <p className="text-sm mt-2 mb-4">Attach a PDF from a URL to view it alongside your notes.</p>
+                        <p className="text-sm mt-2 mb-4">Attach a PDF from a URL or your computer to view it.</p>
                         <Button onClick={() => setShowAddPdfDialog(true)}>Attach PDF</Button>
                     </div>
                   )}
@@ -694,7 +730,7 @@ function StudySessionPageContent() {
           </div>
         </main>
       </div>
-      <FloatingTimerWidget timeInSeconds={sessionTime} isRunning={isSessionRunning} onTogglePlayPause={toggleSessionRunning} onEndSession={() => setShowEndSessionDialog(true)} timerMode={sessionData.timerMode} pomodoroCycle={sessionData.pomodoroCycle} />
+      <FloatingTimerWidget timeInSeconds={sessionTime} isRunning={isSessionRunning} onTogglePlayPause={toggleSessionRunning} onEndSession={() => setShowEndSessionDialog(true)} timerMode={sessionData.timerMode as TimerMode} pomodoroCycle={sessionData.pomodoroCycle} />
     </div>
   );
 }
