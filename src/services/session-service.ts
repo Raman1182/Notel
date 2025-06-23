@@ -25,6 +25,7 @@ export interface SessionDocument extends Omit<SessionData, 'sessionId'> {
   treeData?: TreeNode[];
   notesContent?: Record<string, string>;
   actualDuration?: number; // From the timer, in seconds
+  pdfUrl?: string;
 }
 
 // The session document with its Firestore ID

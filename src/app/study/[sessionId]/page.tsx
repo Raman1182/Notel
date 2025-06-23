@@ -24,6 +24,7 @@ import { FlashcardViewer } from '@/components/study/flashcard-viewer';
 import { QuizTaker } from '@/components/study/quiz-taker';
 import { Card, CardHeader as UiCardHeader, CardContent as UiCardContent, CardTitle as UiCardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { AddPdfDialog } from '@/components/study/add-pdf-dialog';
 
 
 // Debounce utility
@@ -110,6 +111,7 @@ function StudySessionPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [showEndSessionDialog, setShowEndSessionDialog] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<string | null>(null);
+  const [showAddPdfDialog, setShowAddPdfDialog] = useState(false);
 
   // Debounced save functions for Firestore
   const saveTreeToFirestore = useCallback(debounce((newTree: TreeNode[]) => {
@@ -413,6 +415,20 @@ function StudySessionPageContent() {
     }
   };
 
+  const handleSetPdfUrl = async (url: string) => {
+    if (!sessionId || !sessionData) return;
+    try {
+        await updateSession(sessionId, { pdfUrl: url });
+        setSessionData(prev => prev ? { ...prev, pdfUrl: url } : null);
+        toast({ title: "PDF Attached", description: "The PDF can now be viewed in the reference panel." });
+        setReferencePanelContent('pdf');
+        setShowAddPdfDialog(false);
+    } catch (error) {
+        console.error("Error setting PDF URL:", error);
+        toast({ title: "Error", description: "Could not attach the PDF.", variant: "destructive" });
+    }
+  };
+
 
   if (isLoading || !sessionData) {
     return (
@@ -518,6 +534,13 @@ function StudySessionPageContent() {
            </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      <AddPdfDialog
+        open={showAddPdfDialog}
+        onOpenChange={setShowAddPdfDialog}
+        onSave={handleSetPdfUrl}
+        currentUrl={sessionData?.pdfUrl}
+      />
 
       <div className="flex flex-1 overflow-hidden">
         <SessionSidebar 
@@ -541,7 +564,7 @@ function StudySessionPageContent() {
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => handleToggleReferencePanel('pdf')} className="hover:bg-primary/10">
                     <Paperclip className="h-4 w-4 mr-2" />
-                    Add PDF
+                    {sessionData.pdfUrl ? 'View PDF' : 'Attach PDF'}
                 </Button>
             </div>
           </div>
@@ -578,12 +601,11 @@ function StudySessionPageContent() {
               )}
             </div>
             
-            {referencePanelContent && (
+            {referencePanelContent === 'previous-notes' && (
               <div className="w-[35%] max-w-[500px] h-full bg-[#0F0F0F] border border-white/10 p-0 rounded-lg flex flex-col overflow-hidden custom-scrollbar shadow-lg animate-slide-in-from-right">
                 <div className="flex items-center justify-between p-2 border-b border-white/10">
                   <h3 className="text-base font-semibold ml-2">
-                    {referencePanelContent === 'previous-notes' && 'Previous Notes'}
-                    {referencePanelContent === 'pdf' && 'PDF Reference'}
+                    Previous Notes
                   </h3>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReferencePanelContent(null)}>
                     <X className="h-4 w-4" />
@@ -596,13 +618,7 @@ function StudySessionPageContent() {
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
                       </div>
                     )}
-                    {!isFetchingReference && referencePanelContent === 'pdf' && (
-                      <div className="text-center text-muted-foreground p-4">
-                        <p className="font-semibold">PDF Viewer Coming Soon</p>
-                        <p className="text-xs mt-1">This feature will allow you to upload and view PDFs alongside your notes.</p>
-                      </div>
-                    )}
-                    {!isFetchingReference && referencePanelContent === 'previous-notes' && (
+                    {!isFetchingReference && (
                       <div className="space-y-3">
                         {historicalNotesForPanel.length > 0 ? (
                           historicalNotesForPanel.map(note => {
@@ -622,6 +638,42 @@ function StudySessionPageContent() {
                     )}
                   </div>
                 </ScrollArea>
+              </div>
+            )}
+            
+            {referencePanelContent === 'pdf' && (
+              <div className="w-[35%] max-w-[500px] h-full bg-[#0F0F0F] border border-white/10 p-0 rounded-lg flex flex-col overflow-hidden custom-scrollbar shadow-lg animate-slide-in-from-right">
+                <div className="flex items-center justify-between p-2 border-b border-white/10">
+                  <h3 className="text-base font-semibold ml-2">
+                    PDF Reference
+                  </h3>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReferencePanelContent(null)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex-1 flex flex-col">
+                  {sessionData.pdfUrl ? (
+                    <>
+                      <div className="p-2 border-b border-white/10">
+                        <Button variant="link" size="sm" onClick={() => setShowAddPdfDialog(true)}>
+                            Change PDF URL
+                        </Button>
+                      </div>
+                      <iframe
+                        src={sessionData.pdfUrl}
+                        title="PDF Viewer"
+                        className="w-full h-full border-0 flex-1"
+                      />
+                    </>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground p-4">
+                        <FileTextIcon className="h-12 w-12 mb-4 opacity-50" />
+                        <p className="font-semibold text-lg">No PDF Attached</p>
+                        <p className="text-sm mt-2 mb-4">Attach a PDF from a URL to view it alongside your notes.</p>
+                        <Button onClick={() => setShowAddPdfDialog(true)}>Attach PDF URL</Button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
