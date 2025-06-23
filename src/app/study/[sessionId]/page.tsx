@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { SessionSidebar, type TreeNode, findNodeByIdRecursive } from '@/components/study/session-sidebar';
 import { FloatingTimerWidget } from '@/components/study/floating-timer-widget';
-import { Paperclip, Loader2, X, Brain, MessageSquare, Sparkles, FileText as FileTextIcon, AlertTriangle, Layers, History, HelpCircle, Link2, File } from 'lucide-react';
+import { Paperclip, Loader2, X, Brain, MessageSquare, Sparkles, FileText as FileTextIcon, AlertTriangle, Layers, History, HelpCircle, Link2, Map } from 'lucide-react';
 import type { SessionData, TimerMode } from '@/app/study/launch/page';
 import { processText, type ProcessTextInput } from '@/ai/flows/process-text-flow';
 import { generateFlashcardsFlow, type GenerateFlashcardsInput, type GenerateFlashcardsOutput, type Flashcard } from '@/ai/flows/generate-flashcards-flow';
@@ -25,6 +25,8 @@ import { QuizTaker } from '@/components/study/quiz-taker';
 import { Card, CardHeader as UiCardHeader, CardContent as UiCardContent, CardTitle as UiCardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { AddPdfDialog } from '@/components/study/add-pdf-dialog';
+import { GenerateMindmapDialog } from '@/components/study/generate-mindmap-dialog';
+import { generateMindmapFlow } from '@/ai/flows/generate-mindmap-flow';
 
 
 // Debounce utility
@@ -113,6 +115,10 @@ function StudySessionPageContent() {
   const [nodeToDelete, setNodeToDelete] = useState<string | null>(null);
   const [showAddPdfDialog, setShowAddPdfDialog] = useState(false);
   const [temporaryPdfUrl, setTemporaryPdfUrl] = useState<string | null>(null);
+
+  const [showMindmapDialog, setShowMindmapDialog] = useState(false);
+  const [isGeneratingMindmap, setIsGeneratingMindmap] = useState(false);
+  const [generatedMindmap, setGeneratedMindmap] = useState<string | null>(null);
 
 
   // Debounced save functions for Firestore
@@ -452,6 +458,7 @@ function StudySessionPageContent() {
     }
     if (sessionData?.pdfUrl) {
       // Clear permanent URL visually for this session if a local file is loaded
+      updateSession(sessionId, { pdfUrl: undefined }); // Also clear from DB
       setSessionData(prev => prev ? { ...prev, pdfUrl: undefined } : null);
     }
     const newUrl = URL.createObjectURL(file);
@@ -459,6 +466,32 @@ function StudySessionPageContent() {
     setReferencePanelContent('pdf');
     setShowAddPdfDialog(false);
     toast({ title: "Local PDF Loaded", description: "This PDF is for temporary viewing and will not be saved." });
+  };
+  
+  const handleGenerateMindmap = async (topic: string, details?: string) => {
+    setIsGeneratingMindmap(true);
+    setGeneratedMindmap(null);
+    try {
+        const result = await generateMindmapFlow({ topic, details });
+        setGeneratedMindmap(result.markdownRepresentation);
+    } catch(e) {
+        console.error("Error generating mind map", e);
+        toast({ title: "Mind Map Error", description: "Could not generate the mind map.", variant: "destructive" });
+        setShowMindmapDialog(false);
+    } finally {
+        setIsGeneratingMindmap(false);
+    }
+  };
+
+  const handleAddMindmapToNotes = (markdown: string) => {
+    if (!activeNoteId) {
+        toast({ title: "No Active Note", description: "Please select a note to add the mind map to.", variant: "destructive"});
+        return;
+    }
+    setCurrentNoteContent(prev => prev + `\n\n## Mind Map: ${generatedMindmap?.split('\n')[0].replace(/- /g, '') || 'Topic'}\n\n${markdown}\n`);
+    setShowMindmapDialog(false);
+    setGeneratedMindmap(null);
+    toast({ title: "Mind Map Added", description: "The generated mind map has been added to your current note." });
   };
 
 
@@ -577,6 +610,21 @@ function StudySessionPageContent() {
         currentUrl={sessionData?.pdfUrl}
       />
 
+      <GenerateMindmapDialog
+          open={showMindmapDialog}
+          onOpenChange={(isOpen) => {
+              if (!isOpen) {
+                  setGeneratedMindmap(null); // Reset on close
+              }
+              setShowMindmapDialog(isOpen);
+          }}
+          onGenerate={handleGenerateMindmap}
+          onAddToNotes={handleAddMindmapToNotes}
+          isLoading={isGeneratingMindmap}
+          generatedMapMarkdown={generatedMindmap}
+      />
+
+
       <div className="flex flex-1 overflow-hidden">
         <SessionSidebar 
             sessionSubject={sessionData.subject || 'Session'} 
@@ -589,10 +637,14 @@ function StudySessionPageContent() {
         />
         <main className="flex-1 flex flex-col p-4 md:p-6 overflow-y-auto relative custom-scrollbar bg-[#0A0A0A]">
           <div className="flex items-center justify-between mb-4">
-            <div className="text-sm text-muted-foreground truncate max-w-[calc(100%-350px)]">
+            <div className="text-sm text-muted-foreground truncate max-w-[calc(100%-400px)]">
                 {sessionData.subject} {activeNoteId && currentActiveNode ? `/ ${currentActiveNode.name}` : ''}
             </div>
              <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm" onClick={() => setShowMindmapDialog(true)} className="hover:bg-primary/10">
+                    <Map className="h-4 w-4 mr-2" />
+                    Mind Map
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => handleToggleReferencePanel('previous-notes')} className="hover:bg-primary/10">
                     <History className="h-4 w-4 mr-2" />
                     Previous Notes

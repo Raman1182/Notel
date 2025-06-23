@@ -5,16 +5,18 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Lightbulb, Send, X, MessageSquare, Loader2 } from 'lucide-react'; 
-import { studyBuddyFlow, type StudyBuddyInput } from '@/ai/flows/study-buddy-flow';
+import { Lightbulb, Send, X, MessageSquare, Loader2, Link as LinkIcon } from 'lucide-react'; 
+import { studyBuddyFlow, type StudyBuddyInput, type StudyBuddyOutput } from '@/ai/flows/study-buddy-flow';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 interface Message {
   id: string;
   type: 'user' | 'ai' | 'system';
   text: string;
+  citations?: StudyBuddyOutput['citations'];
 }
 
 export function AiAssistantBubble() {
@@ -89,7 +91,8 @@ export function AiAssistantBubble() {
       const aiMessage: Message = { 
         id: (Date.now() + 1).toString(), 
         type: 'ai', 
-        text: result.response
+        text: result.response,
+        citations: result.citations,
       };
       setMessages(prev => [...prev, aiMessage]);
 
@@ -141,41 +144,62 @@ export function AiAssistantBubble() {
               <MessageSquare className="h-5 w-5 text-primary" />
               LearnLog AI
             </DialogTitle>
-             <DialogDescription className="text-xs">Your conversational study buddy.</DialogDescription>
+             <DialogDescription className="text-xs">Your conversational study buddy with web search.</DialogDescription>
           </DialogHeader>
           
-          <ScrollArea ref={scrollAreaRef} className="flex-grow p-3 space-y-3 md:p-4 md:space-y-4">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex animate-slide-up-fade ${
-                  msg.type === 'user' ? 'justify-end' : 'justify-start'
-                }`}
-              >
+          <ScrollArea ref={scrollAreaRef} className="flex-grow p-3 md:p-4">
+             <div className="space-y-3 md:space-y-4">
+                {messages.map((msg) => (
                 <div
-                  className={cn("max-w-[85%] rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-sm shadow-sm",
-                    msg.type === 'user' ? 'bg-primary text-primary-foreground' :
-                    msg.type === 'ai' ? 'bg-secondary text-secondary-foreground' :
-                    'bg-muted text-muted-foreground text-center w-full text-xs py-1.5 md:py-2'
-                  )}
+                    key={msg.id}
+                    className={`flex flex-col animate-slide-up-fade ${
+                    msg.type === 'user' ? 'items-end' : 'items-start'
+                    }`}
                 >
-                  {msg.text.split('\n').map((line, index) => (
-                    <span key={index}>{line}{index < msg.text.split('\n').length - 1 && <br />}</span>
-                  ))}
+                    <div
+                    className={cn("max-w-[85%] rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-sm shadow-sm",
+                        msg.type === 'user' ? 'bg-primary text-primary-foreground' :
+                        msg.type === 'ai' ? 'bg-secondary text-secondary-foreground' :
+                        'bg-muted text-muted-foreground text-center w-full text-xs py-1.5 md:py-2'
+                    )}
+                    >
+                    {msg.text.split('\n').map((line, index) => (
+                        <span key={index}>{line}{index < msg.text.split('\n').length - 1 && <br />}</span>
+                    ))}
+                    </div>
+                    {msg.type === 'ai' && msg.citations && msg.citations.length > 0 && (
+                        <div className="mt-2 text-xs w-full max-w-[85%]">
+                            <p className="font-semibold mb-1 text-muted-foreground">Sources:</p>
+                            <div className="space-y-1">
+                            {msg.citations.map((citation, index) => (
+                                <Link
+                                    key={index}
+                                    href={citation.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-start gap-1.5 text-primary/80 hover:text-primary hover:underline"
+                                >
+                                <LinkIcon className="h-3 w-3 mt-0.5 shrink-0" />
+                                <span className="truncate" title={citation.title}>{citation.title}</span>
+                                </Link>
+                            ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
-              </div>
-            ))}
-            {isLoading && (
-                 <div className="flex justify-start animate-slide-up-fade">
-                    <div className="max-w-[75%] rounded-lg px-4 py-3 text-sm bg-secondary text-secondary-foreground">
-                        <div className="flex items-center space-x-1.5">
-                            <span className="h-2 w-2 bg-muted-foreground rounded-full animate-wave-dot-1"></span>
-                            <span className="h-2 w-2 bg-muted-foreground rounded-full animate-wave-dot-2"></span>
-                            <span className="h-2 w-2 bg-muted-foreground rounded-full animate-wave-dot-3"></span>
+                ))}
+                {isLoading && (
+                    <div className="flex justify-start animate-slide-up-fade">
+                        <div className="max-w-[75%] rounded-lg px-4 py-3 text-sm bg-secondary text-secondary-foreground">
+                            <div className="flex items-center space-x-1.5">
+                                <span className="h-2 w-2 bg-muted-foreground rounded-full animate-wave-dot-1"></span>
+                                <span className="h-2 w-2 bg-muted-foreground rounded-full animate-wave-dot-2"></span>
+                                <span className="h-2 w-2 bg-muted-foreground rounded-full animate-wave-dot-3"></span>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+             </div>
           </ScrollArea>
           <div className="p-2 md:p-3 border-t border-border">
             <div className="flex w-full items-center space-x-2">

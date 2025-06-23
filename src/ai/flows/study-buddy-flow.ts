@@ -9,6 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { googleAI } from '@genkit-ai/googleai';
 import { z } from 'genkit';
 
 const StudyBuddyInputSchema = z.object({
@@ -18,8 +19,15 @@ const StudyBuddyInputSchema = z.object({
 });
 export type StudyBuddyInput = z.infer<typeof StudyBuddyInputSchema>;
 
+const CitationSchema = z.object({
+  url: z.string().url().describe("The URL of the source."),
+  title: z.string().describe("The title of the source page."),
+  publication: z.string().optional().describe("The publication or website name."),
+});
+
 const StudyBuddyOutputSchema = z.object({
-  response: z.string().describe('The AI study buddy\'s response to the user.'),
+  response: z.string().describe('The AI study buddy\'s response to the user. It may contain citation markers like [1], [2].'),
+  citations: z.array(CitationSchema).optional().describe("An array of web sources used to generate the response."),
 });
 export type StudyBuddyOutput = z.infer<typeof StudyBuddyOutputSchema>;
 
@@ -31,36 +39,32 @@ const prompt = ai.definePrompt({
   name: 'studyBuddyPrompt',
   input: { schema: StudyBuddyInputSchema },
   output: { schema: StudyBuddyOutputSchema },
+  tools: [googleAI.googleSearch],
   prompt: `You are LearnLog AI, a friendly, encouraging, and highly knowledgeable study buddy. Your primary goal is to help students understand concepts, plan their studies, and answer their questions effectively across ALL academic subjects.
+
+When the user asks a question that requires factual information or up-to-date knowledge, you **must** use your web search tool to find answers from reliable online sources.
+
+When you use information from a web search, you MUST cite your sources.
+- In your 'response' text, add citation markers, like [1], [2], at the end of the sentence or fact that came from a source.
+- Populate the 'citations' array with the corresponding sources. For each source, provide the full URL and the title of the page.
 
 Current user query: "{{{query}}}"
 
-Your knowledge spans a wide range of topics. Do not assume a specific subject unless the user explicitly mentions one in their query, provides a 'studySubject', or includes 'contextText' that clearly indicates a subject. If the subject is unclear from the query, you can ask for clarification.
-
 {{#if studySubject}}
-The user has indicated they might be focusing on the subject: "{{{studySubject}}}". If their query seems related to this subject, tailor your advice or explanations accordingly. Otherwise, address the query more generally.
+The user has indicated they might be focusing on the subject: "{{{studySubject}}}". If their query seems related to this subject, tailor your advice or explanations accordingly.
 {{/if}}
 
 {{#if contextText}}
-The user has provided the following text for context:
+The user has provided the following text for context. Prioritize this text for your answer if relevant.
 """
 {{{contextText}}}
 """
-Focus your response on this provided text if the query relates to it.
-{{else}}
-{{#unless studySubject}}
-The user has not provided a specific subject or context text. Base your response on their query using your general knowledge.
-{{/unless}}
 {{/if}}
 
-Based on the user's query and any provided context or subject:
-- If they ask for explanations of concepts, provide clear, concise, and easy-to-understand answers. Use analogies or examples where helpful.
-- If they ask for study suggestions or planning help, offer actionable and practical advice applicable to students.
-- If they seem stuck or ask what to study next, try to give relevant suggestions. If a subject IS known, suggest topics within it. If not, offer general study strategies or ask what subject they're interested in.
-- If the query is conversational (e.g., "how are you?"), respond in a friendly and brief manner.
-- If the query is about your capabilities, briefly explain what you can help with (e.g., explaining topics across various subjects, study tips, discussing provided text).
+Based on the user's query and any provided context:
+- If they ask for explanations of concepts, provide clear, concise, and easy-to-understand answers. Use analogies or examples.
+- If they ask for study suggestions, offer actionable advice.
 - Maintain an encouraging and supportive tone.
-- Your response should be directly addressing the user.
 `,
 });
 
@@ -78,4 +82,3 @@ const internalStudyBuddyFlow = ai.defineFlow(
     return output;
   }
 );
-
