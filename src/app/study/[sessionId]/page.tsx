@@ -460,11 +460,11 @@ function StudySessionPageContent() {
         };
 
         resourcesNode.children = resourcesNode.children ? [...resourcesNode.children, newResourceNode] : [newResourceNode];
-
-        toast({ title: "Resource Added", description: `"${resourceName}" has been added to your session notes.` });
+        
         return newTree;
     });
     
+    toast({ title: "Resource Added", description: `"${resourceName}" has been added to your session notes.` });
     setShowAddPdfDialog(false);
   };
 
