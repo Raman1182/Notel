@@ -432,35 +432,33 @@ function StudySessionPageContent() {
   };
   
   const handleAddLocalResource = (resourceName: string) => {
-    setTreeData(prevTree => {
-        const newTree = [...prevTree];
-        const rootNode = newTree[0];
-        if (!rootNode) return prevTree;
+    const newTreeData = [...treeData];
+    const rootNode = newTreeData[0];
+    if (!rootNode) return;
 
-        let resourcesNode = rootNode.children?.find(child => child.id === 'resources-root');
-        
-        if (!resourcesNode) {
-            resourcesNode = {
-                id: 'resources-root',
-                name: 'Attached Resources',
-                type: 'title',
-                children: [],
-                parentId: rootNode.id,
-            };
-            rootNode.children = rootNode.children ? [...rootNode.children, resourcesNode] : [resourcesNode];
-        }
-
-        const newResourceNode: TreeNode = {
-            id: `resource-${Date.now()}`,
-            name: resourceName,
-            type: 'resource',
-            parentId: resourcesNode.id,
+    let resourcesNode = rootNode.children?.find(child => child.id === 'resources-root');
+    
+    if (!resourcesNode) {
+        resourcesNode = {
+            id: 'resources-root',
+            name: 'Attached Resources',
+            type: 'title',
+            children: [],
+            parentId: rootNode.id,
         };
+        rootNode.children = rootNode.children ? [...rootNode.children, resourcesNode] : [resourcesNode];
+    }
 
-        resourcesNode.children = resourcesNode.children ? [...resourcesNode.children, newResourceNode] : [newResourceNode];
-        
-        return newTree;
-    });
+    const newResourceNode: TreeNode = {
+        id: `resource-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        name: resourceName,
+        type: 'resource',
+        parentId: resourcesNode.id,
+    };
+
+    resourcesNode.children = resourcesNode.children ? [...resourcesNode.children, newResourceNode] : [newResourceNode];
+    
+    setTreeData(newTreeData);
     
     toast({ title: "Resource Added", description: `"${resourceName}" has been added to your session notes.` });
     setShowAddPdfDialog(false);
