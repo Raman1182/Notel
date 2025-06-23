@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronDown, FileText as FileTextIcon, FolderOpen, FolderClosed, BookText, ChevronsLeftRight, PlusSquare, FilePlus2, FolderPlus, Dot, Edit2, Trash2, File } from 'lucide-react';
+import { ChevronDown, FileText as FileTextIcon, FolderOpen, FolderClosed, BookText, ChevronsLeftRight, PlusSquare, FilePlus2, FolderPlus, Dot, Edit2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 export interface TreeNode {
   id: string;
   name: string;
-  type: 'subject' | 'title' | 'subheading' | 'note' | 'resource';
+  type: 'subject' | 'title' | 'subheading' | 'note';
   children?: TreeNode[]; 
   parentId: string | null; 
 }
@@ -32,7 +32,6 @@ const TypeIconMap: Record<TreeNode['type'], React.ElementType> = {
   title: FolderOpen, 
   subheading: FolderOpen, 
   note: FileTextIcon,
-  resource: File,
 };
 
 interface TreeItemDisplayProps {

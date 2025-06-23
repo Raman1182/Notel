@@ -214,7 +214,7 @@ function StudySessionPageContent() {
 
   const handleNoteSelect = (nodeId: string, nodeType: TreeNode['type']) => {
     setActiveNoteId(nodeId);
-    if (nodeType === 'note' || nodeType === 'resource') {
+    if (nodeType === 'note') {
       const content = notesContent[nodeId] || '';
       setCurrentNoteContent(content);
     } else {
@@ -279,7 +279,7 @@ function StudySessionPageContent() {
     
     const findDescendantNoteIds = (nodes: TreeNode[]) => {
       for (const node of nodes) {
-        if (node.type === 'note' || node.type === 'resource') {
+        if (node.type === 'note') {
           noteIdsToDelete.push(node.id);
         }
         if (node.children) {
@@ -291,7 +291,7 @@ function StudySessionPageContent() {
     const filterTreeRecursively = (nodes: TreeNode[], idToDelete: string): TreeNode[] => {
       return nodes.filter(node => {
         if (node.id === idToDelete) {
-          if (node.type === 'note' || node.type === 'resource') {
+          if (node.type === 'note') {
             noteIdsToDelete.push(node.id);
           }
           if (node.children) {
@@ -430,40 +430,6 @@ function StudySessionPageContent() {
         toast({ title: "Error", description: "Could not attach the PDF.", variant: "destructive" });
     }
   };
-  
-  const handleAddLocalResource = (resourceName: string) => {
-    const newTreeData = [...treeData];
-    const rootNode = newTreeData[0];
-    if (!rootNode) return;
-
-    let resourcesNode = rootNode.children?.find(child => child.id === 'resources-root');
-    
-    if (!resourcesNode) {
-        resourcesNode = {
-            id: 'resources-root',
-            name: 'Attached Resources',
-            type: 'title',
-            children: [],
-            parentId: rootNode.id,
-        };
-        rootNode.children = rootNode.children ? [...rootNode.children, resourcesNode] : [resourcesNode];
-    }
-
-    const newResourceNode: TreeNode = {
-        id: `resource-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        name: resourceName,
-        type: 'resource',
-        parentId: resourcesNode.id,
-    };
-
-    resourcesNode.children = resourcesNode.children ? [...resourcesNode.children, newResourceNode] : [newResourceNode];
-    
-    setTreeData(newTreeData);
-    
-    toast({ title: "Resource Added", description: `"${resourceName}" has been added to your session notes.` });
-    setShowAddPdfDialog(false);
-  };
-
 
   if (isLoading || !sessionData) {
     return (
@@ -574,7 +540,6 @@ function StudySessionPageContent() {
         open={showAddPdfDialog}
         onOpenChange={setShowAddPdfDialog}
         onSaveUrl={handleAttachUrl}
-        onAddLocalResource={handleAddLocalResource}
         currentUrl={sessionData?.pdfUrl}
       />
 
