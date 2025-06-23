@@ -8,8 +8,7 @@
  * - StudyBuddyOutput - The return type for the studyBuddyFlow function.
  */
 
-import { ai } from '@/ai/genkit';
-import { googleAI } from '@genkit-ai/googleai';
+import { ai, googleAI } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const StudyBuddyInputSchema = z.object({
