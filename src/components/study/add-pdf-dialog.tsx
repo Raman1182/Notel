@@ -83,7 +83,7 @@ export function AddPdfDialog({ open, onOpenChange, onSaveUrl, onAddLocalResource
         <DialogHeader>
           <DialogTitle>Attach a Resource</DialogTitle>
           <DialogDescription>
-            Link a PDF from a URL to view it here, or add a reference to a local PDF file in your notes.
+            Link a publicly accessible PDF from a URL to view it here, or add a reference to a local PDF file in your notes.
           </DialogDescription>
         </DialogHeader>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -91,7 +91,7 @@ export function AddPdfDialog({ open, onOpenChange, onSaveUrl, onAddLocalResource
                 <TabsTrigger value="url">From URL</TabsTrigger>
                 <TabsTrigger value="local">From Computer</TabsTrigger>
             </TabsList>
-            <TabsContent value="url" className="py-4">
+            <TabsContent value="url" className="py-4 space-y-2">
                  <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="pdf-url" className="text-right">
                         PDF URL
@@ -101,9 +101,12 @@ export function AddPdfDialog({ open, onOpenChange, onSaveUrl, onAddLocalResource
                         value={url}
                         onChange={(e) => setUrl(e.target.value)}
                         className="col-span-3"
-                        placeholder="https://example.com/document.pdf"
+                        placeholder="e.g., https://arxiv.org/pdf/2401.00001.pdf"
                     />
                 </div>
+                 <p className="col-span-4 text-xs text-muted-foreground px-1 pl-[calc(25%+1rem)]">
+                    The URL must be public and end with .pdf. Links from private cloud storage may not work.
+                </p>
             </TabsContent>
             <TabsContent value="local" className="py-4">
                 <div className="flex flex-col items-center justify-center space-y-3 text-center">

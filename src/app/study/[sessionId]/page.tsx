@@ -690,12 +690,21 @@ function StudySessionPageContent() {
                 <div className="flex-1 flex flex-col">
                   {sessionData.pdfUrl ? (
                     <>
-                      <div className="p-2 border-b border-white/10">
-                        <Button variant="link" size="sm" onClick={() => setShowAddPdfDialog(true)}>
-                            Change PDF URL
-                        </Button>
+                      <div className="p-2 border-b border-white/10 flex items-center justify-between">
+                        <div>
+                          <Button variant="link" size="sm" onClick={() => setShowAddPdfDialog(true)}>
+                              Change PDF URL
+                          </Button>
+                          <Button variant="link" size="sm" asChild>
+                            <a href={sessionData.pdfUrl} target="_blank" rel="noopener noreferrer">
+                                Open in new tab
+                            </a>
+                          </Button>
+                        </div>
                       </div>
+                      <p className="text-xs text-muted-foreground px-3 py-1 bg-background/50">Note: PDF must be publicly accessible to be viewed here.</p>
                       <iframe
+                        key={sessionData.pdfUrl}
                         src={`https://docs.google.com/gview?url=${encodeURIComponent(sessionData.pdfUrl)}&embedded=true`}
                         title="PDF Viewer"
                         className="w-full h-full border-0 flex-1"
