@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { SessionSidebar, type TreeNode, findNodeByIdRecursive } from '@/components/study/session-sidebar';
 import { FloatingTimerWidget } from '@/components/study/floating-timer-widget';
-import { Paperclip, Loader2, X, Brain, MessageSquare, Sparkles, FileText as FileTextIcon, AlertTriangle, Layers, History, HelpCircle, Link2 } from 'lucide-react';
+import { Paperclip, Loader2, X, Brain, MessageSquare, Sparkles, FileText as FileTextIcon, AlertTriangle, Layers, History, HelpCircle, Link2, File } from 'lucide-react';
 import type { SessionData, TimerMode } from '@/app/study/launch/page';
 import { processText, type ProcessTextInput } from '@/ai/flows/process-text-flow';
 import { generateFlashcardsFlow, type GenerateFlashcardsInput, type GenerateFlashcardsOutput, type Flashcard } from '@/ai/flows/generate-flashcards-flow';
@@ -214,10 +214,12 @@ function StudySessionPageContent() {
 
   const handleNoteSelect = (nodeId: string, nodeType: TreeNode['type']) => {
     setActiveNoteId(nodeId);
-    if (nodeType === 'note') {
-      setCurrentNoteContent(notesContent[nodeId] || '');
+    if (nodeType === 'note' || nodeType === 'resource') {
+      const content = notesContent[nodeId] || '';
+      setCurrentNoteContent(content);
     } else {
-      setCurrentNoteContent(`You've selected '${findNodeByIdRecursive(treeData, nodeId)?.name || 'an item'}'. Select a specific note to see its content.`);
+      const selectedNode = findNodeByIdRecursive(treeData, nodeId);
+      setCurrentNoteContent(`You've selected '${selectedNode?.name || 'an item'}'. Select a specific note to see its content.`);
     }
   };
 
@@ -277,7 +279,7 @@ function StudySessionPageContent() {
     
     const findDescendantNoteIds = (nodes: TreeNode[]) => {
       for (const node of nodes) {
-        if (node.type === 'note') {
+        if (node.type === 'note' || node.type === 'resource') {
           noteIdsToDelete.push(node.id);
         }
         if (node.children) {
@@ -289,7 +291,7 @@ function StudySessionPageContent() {
     const filterTreeRecursively = (nodes: TreeNode[], idToDelete: string): TreeNode[] => {
       return nodes.filter(node => {
         if (node.id === idToDelete) {
-          if (node.type === 'note') {
+          if (node.type === 'note' || node.type === 'resource') {
             noteIdsToDelete.push(node.id);
           }
           if (node.children) {
@@ -415,7 +417,7 @@ function StudySessionPageContent() {
     }
   };
 
-  const handleSetPdfUrl = async (url: string) => {
+  const handleAttachUrl = async (url: string) => {
     if (!sessionId || !sessionData) return;
     try {
         await updateSession(sessionId, { pdfUrl: url });
@@ -427,6 +429,43 @@ function StudySessionPageContent() {
         console.error("Error setting PDF URL:", error);
         toast({ title: "Error", description: "Could not attach the PDF.", variant: "destructive" });
     }
+  };
+  
+  const handleAddLocalResource = (resourceName: string) => {
+    if (!sessionId || !sessionData) return;
+
+    setTreeData(prevTree => {
+        const newTree = [...prevTree];
+        const rootNode = newTree[0];
+        if (!rootNode) return prevTree;
+
+        let resourcesNode = rootNode.children?.find(child => child.id === 'resources-root');
+        
+        if (!resourcesNode) {
+            resourcesNode = {
+                id: 'resources-root',
+                name: 'Attached Resources',
+                type: 'title',
+                children: [],
+                parentId: rootNode.id,
+            };
+            rootNode.children = rootNode.children ? [...rootNode.children, resourcesNode] : [resourcesNode];
+        }
+
+        const newResourceNode: TreeNode = {
+            id: `resource-${Date.now()}`,
+            name: resourceName,
+            type: 'resource',
+            parentId: resourcesNode.id,
+        };
+
+        resourcesNode.children = resourcesNode.children ? [...resourcesNode.children, newResourceNode] : [newResourceNode];
+
+        toast({ title: "Resource Added", description: `"${resourceName}" has been added to your session notes.` });
+        return newTree;
+    });
+    
+    setShowAddPdfDialog(false);
   };
 
 
@@ -473,7 +512,7 @@ function StudySessionPageContent() {
         </AlertDialogContent>
       </AlertDialog>
       
-      <AlertDialog open={!!nodeToDelete} onOpenChange={setNodeToDelete}>
+      <AlertDialog open={!!nodeToDelete} onOpenChange={(open) => !open && setNodeToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -538,7 +577,8 @@ function StudySessionPageContent() {
       <AddPdfDialog
         open={showAddPdfDialog}
         onOpenChange={setShowAddPdfDialog}
-        onSave={handleSetPdfUrl}
+        onSaveUrl={handleAttachUrl}
+        onAddLocalResource={handleAddLocalResource}
         currentUrl={sessionData?.pdfUrl}
       />
 
@@ -670,7 +710,7 @@ function StudySessionPageContent() {
                         <FileTextIcon className="h-12 w-12 mb-4 opacity-50" />
                         <p className="font-semibold text-lg">No PDF Attached</p>
                         <p className="text-sm mt-2 mb-4">Attach a PDF from a URL to view it alongside your notes.</p>
-                        <Button onClick={() => setShowAddPdfDialog(true)}>Attach PDF URL</Button>
+                        <Button onClick={() => setShowAddPdfDialog(true)}>Attach PDF</Button>
                     </div>
                   )}
                 </div>

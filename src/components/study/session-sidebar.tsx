@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronDown, FileText as FileTextIcon, FolderOpen, FolderClosed, BookText, ChevronsLeftRight, PlusSquare, FilePlus2, FolderPlus, Dot, Edit2, Trash2 } from 'lucide-react';
+import { ChevronDown, FileText as FileTextIcon, FolderOpen, FolderClosed, BookText, ChevronsLeftRight, PlusSquare, FilePlus2, FolderPlus, Dot, Edit2, Trash2, File } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 export interface TreeNode {
   id: string;
   name: string;
-  type: 'subject' | 'title' | 'subheading' | 'note';
+  type: 'subject' | 'title' | 'subheading' | 'note' | 'resource';
   children?: TreeNode[]; 
   parentId: string | null; 
 }
@@ -32,6 +32,7 @@ const TypeIconMap: Record<TreeNode['type'], React.ElementType> = {
   title: FolderOpen, 
   subheading: FolderOpen, 
   note: FileTextIcon,
+  resource: File,
 };
 
 interface TreeItemDisplayProps {
@@ -46,7 +47,7 @@ interface TreeItemDisplayProps {
 }
 
 const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelectNode, activeNodeId, onAddNode, onRenameNode, onDeleteNode, isReadOnly = false }) => {
-  const [isOpen, setIsOpen] = useState(level < 1 || item.type === 'subject' || (item.children && item.children.length > 0 && item.type !== 'note')); 
+  const [isOpen, setIsOpen] = useState(level < 1 || item.type === 'subject' || (item.children && item.children.length > 0 && (item.type === 'title' || item.type === 'subheading'))); 
   const [isHovered, setIsHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingName, setEditingName] = useState(item.name);
@@ -116,7 +117,7 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
 
   const handleToggleOpen = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (item.type !== 'note') { 
+    if (item.type === 'subject' || item.type === 'title' || item.type === 'subheading') { 
       setIsOpen(!isOpen);
     }
   };
@@ -129,6 +130,7 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
 
   const canAddSubheading = item.type === 'title'; 
   const canAddNoteToThisLevel = item.type === 'subject' || item.type === 'title' || item.type === 'subheading';
+  const canBeParent = item.type === 'subject' || item.type === 'title' || item.type === 'subheading';
 
   return (
     <div>
@@ -143,7 +145,7 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {item.type !== 'note' && item.children && item.children.length >= 0 ? ( // Show chevron only if it can have children and is not a note
+        {canBeParent ? (
           <button onClick={handleToggleOpen} className="p-0.5 mr-1.5 rounded-sm hover:bg-white/20 focus:outline-none shrink-0">
             <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-0' : '-rotate-90'}`} />
           </button>
