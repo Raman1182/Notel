@@ -109,6 +109,7 @@ function StudySessionPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showEndSessionDialog, setShowEndSessionDialog] = useState(false);
+  const [nodeToDelete, setNodeToDelete] = useState<string | null>(null);
 
   // Debounced save functions for Firestore
   const saveTreeToFirestore = useCallback(debounce((newTree: TreeNode[]) => {
@@ -119,9 +120,9 @@ function StudySessionPageContent() {
     if (sessionId) updateSession(sessionId, { notesContent: content });
   }, 1000), [sessionId]);
   
-  const saveActualDurationToFirestore = useCallback(debounce((duration: number) => {
+  const saveActualDurationToFirestore = useCallback((duration: number) => {
       if (sessionId) updateSession(sessionId, { actualDuration: duration });
-  }, 5000), [sessionId]);
+  }, [sessionId]);
 
   useEffect(() => {
     if (!sessionId || !user) {
@@ -175,13 +176,18 @@ function StudySessionPageContent() {
     }
   }, [currentNoteContent, activeNoteId, isLoading, notesContent, saveNotesContentToFirestore]);
 
+  // Debounced version for periodic saves
+  const debouncedSaveDuration = useCallback(debounce((duration: number) => {
+    if (sessionId) updateSession(sessionId, { actualDuration: duration });
+  }, 5000), [sessionId]);
+
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (isSessionRunning && !isLoading) {
       interval = setInterval(() => {
         setSessionTime(prevTime => {
           const newTime = prevTime + 1;
-          saveActualDurationToFirestore(newTime);
+          debouncedSaveDuration(newTime);
           return newTime;
         });
       }, 1000);
@@ -189,14 +195,15 @@ function StudySessionPageContent() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isSessionRunning, isLoading, saveActualDurationToFirestore]);
+  }, [isSessionRunning, isLoading, debouncedSaveDuration]);
 
   const toggleSessionRunning = () => setIsSessionRunning(prev => !prev);
   
   const confirmEndSession = () => {
     setIsSessionRunning(false);
     if (sessionId) {
-      updateSession(sessionId, { actualDuration: sessionTime });
+      // Direct call to save final time immediately
+      saveActualDurationToFirestore(sessionTime);
     }
     setShowEndSessionDialog(false);
     toast({ title: "Session Paused", description: `${sessionData?.subject || 'Session'} progress saved.`});
@@ -221,16 +228,97 @@ function StudySessionPageContent() {
     if (type === 'note') {
       setNotesContent(prev => ({ ...prev, [newNode.id]: '' }));
     }
-    const updateTreeRecursively = (nodes: TreeNode[], pId: string | null): TreeNode[] => {
-      if (pId === null || (nodes.length > 0 && nodes[0].id === pId)) {
-        return [{ ...nodes[0], children: [...(nodes[0].children || []), newNode] }];
-      }
-      return nodes.map(node => node.id === pId
-        ? { ...node, children: [...(node.children || []), newNode] }
-        : { ...node, children: node.children ? updateTreeRecursively(node.children, pId) : [] }
-      );
+    const updateTreeRecursively = (nodes: TreeNode[]): TreeNode[] => {
+      return nodes.map(node => {
+        if (node.id === parentId) {
+          return { ...node, children: [...(node.children || []), newNode] };
+        }
+        if (node.children) {
+          return { ...node, children: updateTreeRecursively(node.children) };
+        }
+        return node;
+      });
     };
-    setTreeData(prevTree => updateTreeRecursively(prevTree, parentId || 'root')); 
+    
+    setTreeData(prevTree => {
+        if (!parentId) { // Adding to root
+             const rootNode = prevTree[0];
+             if (rootNode) {
+                 return [{ ...rootNode, children: [...(rootNode.children || []), newNode] }];
+             }
+             return prevTree;
+        }
+        return updateTreeRecursively(prevTree);
+    });
+  };
+  
+  const handleRenameNode = (nodeId: string, newName: string) => {
+    if (!newName.trim()) return;
+    const updateNameRecursively = (nodes: TreeNode[]): TreeNode[] => {
+        return nodes.map(node => {
+            if (node.id === nodeId) {
+                return { ...node, name: newName.trim() };
+            }
+            if (node.children) {
+                return { ...node, children: updateNameRecursively(node.children) };
+            }
+            return node;
+        });
+    };
+    setTreeData(prevTree => updateNameRecursively(prevTree));
+  };
+  
+  const handleDeleteNode = () => {
+    if (!nodeToDelete) return;
+
+    let noteIdsToDelete: string[] = [];
+    
+    const findDescendantNoteIds = (nodes: TreeNode[]) => {
+      for (const node of nodes) {
+        if (node.type === 'note') {
+          noteIdsToDelete.push(node.id);
+        }
+        if (node.children) {
+          findDescendantNoteIds(node.children);
+        }
+      }
+    };
+
+    const filterTreeRecursively = (nodes: TreeNode[], idToDelete: string): TreeNode[] => {
+      return nodes.filter(node => {
+        if (node.id === idToDelete) {
+          if (node.type === 'note') {
+            noteIdsToDelete.push(node.id);
+          }
+          if (node.children) {
+            findDescendantNoteIds(node.children);
+          }
+          return false;
+        }
+        if (node.children) {
+          node.children = filterTreeRecursively(node.children, idToDelete);
+        }
+        return true;
+      });
+    };
+
+    setTreeData(prevTree => filterTreeRecursively([...prevTree], nodeToDelete));
+    
+    setNotesContent(prevNotes => {
+      const newNotes = { ...prevNotes };
+      noteIdsToDelete.forEach(id => {
+        delete newNotes[id];
+      });
+      return newNotes;
+    });
+
+    if (activeNoteId === nodeToDelete || noteIdsToDelete.includes(activeNoteId || '')) {
+      setActiveNoteId(null);
+      setCurrentNoteContent("Select a note to view its content.");
+    }
+    
+    setNodeToDelete(null);
+    toast({ title: "Item Deleted", description: "The selected item and its contents have been removed." });
   };
   
   const handleAiAction = async (actionType: 'explain' | 'summarize' | 'expand') => {
@@ -368,6 +456,19 @@ function StudySessionPageContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      <AlertDialog open={!!nodeToDelete} onOpenChange={setNodeToDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete the selected item and all of its content. This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setNodeToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteNode} variant="destructive">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={!!aiGeneratedContentType} onOpenChange={(open) => !open && setAiGeneratedContentType(null)}>
         <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl min-h-[70vh] flex flex-col p-0">
@@ -419,7 +520,15 @@ function StudySessionPageContent() {
       </Dialog>
 
       <div className="flex flex-1 overflow-hidden">
-        <SessionSidebar sessionSubject={sessionData.subject || 'Session'} treeData={treeData} onSelectNode={handleNoteSelect} activeNodeId={sidebarActiveNodeIdProp} onAddNode={addNodeToTree} />
+        <SessionSidebar 
+            sessionSubject={sessionData.subject || 'Session'} 
+            treeData={treeData} 
+            onSelectNode={handleNoteSelect} 
+            activeNodeId={sidebarActiveNodeIdProp} 
+            onAddNode={addNodeToTree} 
+            onRenameNode={handleRenameNode}
+            onDeleteNode={(nodeId) => setNodeToDelete(nodeId)}
+        />
         <main className="flex-1 flex flex-col p-4 md:p-6 overflow-y-auto relative custom-scrollbar bg-[#0A0A0A]">
           <div className="flex items-center justify-between mb-4">
             <div className="text-sm text-muted-foreground truncate max-w-[calc(100%-350px)]">

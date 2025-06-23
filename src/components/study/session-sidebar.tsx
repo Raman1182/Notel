@@ -40,21 +40,46 @@ interface TreeItemDisplayProps {
   onSelectNode: (id: string, type: TreeNode['type']) => void;
   activeNodeId: string | null;
   onAddNode: (parentId: string, type: 'title' | 'subheading' | 'note', name: string) => void;
+  onRenameNode: (nodeId: string, newName: string) => void;
+  onDeleteNode: (nodeId: string) => void;
   isReadOnly?: boolean;
 }
 
-const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelectNode, activeNodeId, onAddNode, isReadOnly = false }) => {
+const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelectNode, activeNodeId, onAddNode, onRenameNode, onDeleteNode, isReadOnly = false }) => {
   const [isOpen, setIsOpen] = useState(level < 1 || item.type === 'subject' || (item.children && item.children.length > 0 && item.type !== 'note')); 
   const [isHovered, setIsHovered] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingName, setEditingName] = useState(item.name);
   
   const [editingChild, setEditingChild] = useState<{type: 'title' | 'subheading' | 'note', name: string} | null>(null);
   const childInputRef = useRef<HTMLInputElement>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (isEditing && editInputRef.current) {
+        editInputRef.current.focus();
+        editInputRef.current.select();
+    }
     if (editingChild && childInputRef.current) {
       childInputRef.current.focus();
     }
-  }, [editingChild]);
+  }, [isEditing, editingChild]);
+  
+  const handleStartEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditing(true);
+  };
+  
+  const handleRenameConfirm = (e?: React.FocusEvent | React.FormEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (editingName.trim()) {
+        onRenameNode(item.id, editingName);
+    } else {
+        setEditingName(item.name); // Revert if empty
+    }
+    setIsEditing(false);
+  };
 
   const handleStartAddChild = (type: 'title' | 'subheading' | 'note', e?: React.MouseEvent) => {
     if (isReadOnly) return;
@@ -97,10 +122,11 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
   };
   
   const handleSelect = () => {
-    onSelectNode(item.id, item.type);
+    if (!isEditing) {
+        onSelectNode(item.id, item.type);
+    }
   };
 
-  const canAddTitle = item.type === 'subject'; // This might not be used if only root can add titles via top buttons
   const canAddSubheading = item.type === 'title'; 
   const canAddNoteToThisLevel = item.type === 'subject' || item.type === 'title' || item.type === 'subheading';
 
@@ -126,9 +152,27 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
         )}
         
         <ItemIcon className={cn(`h-4 w-4 mr-1.5 shrink-0`, item.type === 'subject' ? 'text-primary' : activeNodeId === item.id ? 'text-primary': 'text-foreground-opacity-50 group-hover:text-foreground-opacity-70')} />
-        <span className="truncate flex-1 group-hover:text-foreground-opacity-100">{item.name}</span>
+        
+        {isEditing ? (
+             <form onSubmit={handleRenameConfirm} className="flex-1">
+                <Input
+                  ref={editInputRef}
+                  type="text"
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') { e.preventDefault(); setIsEditing(false); setEditingName(item.name); }
+                  }}
+                  onBlur={handleRenameConfirm}
+                  className="bg-transparent text-sm outline-none border border-primary/50 rounded px-2 py-1 w-full focus:border-primary h-7"
+                />
+              </form>
+        ) : (
+            <span className="truncate flex-1 group-hover:text-foreground-opacity-100">{item.name}</span>
+        )}
 
-        {!isReadOnly && isHovered && !editingChild && (item.type !== 'note') && (
+
+        {!isReadOnly && isHovered && !editingChild && !isEditing && (
           <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center space-x-0.5 bg-[#0F0F0F] p-0.5 rounded">
             {canAddSubheading && ( 
               <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 hover:bg-white/20" title={`Add Sub-heading to ${item.name}`} onClick={(e) => handleStartAddChild('subheading', e)}>
@@ -140,6 +184,12 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
                 <FilePlus2 className="h-3.5 w-3.5" />
               </Button>
             )}
+            <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 hover:bg-white/20" title={`Rename ${item.name}`} onClick={handleStartEdit}>
+                <Edit2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 text-red-500/70 hover:bg-red-500/20 hover:text-red-400" title={`Delete ${item.name}`} onClick={(e) => { e.stopPropagation(); onDeleteNode(item.id); }}>
+                <Trash2 className="h-3.5 w-3.5" />
+            </Button>
           </div>
         )}
       </div>
@@ -176,6 +226,8 @@ const TreeItemDisplay: React.FC<TreeItemDisplayProps> = ({ item, level, onSelect
             onSelectNode={onSelectNode} 
             activeNodeId={activeNodeId} 
             onAddNode={onAddNode}
+            onRenameNode={onRenameNode}
+            onDeleteNode={onDeleteNode}
             isReadOnly={isReadOnly}
         />
       ))}
@@ -189,10 +241,21 @@ interface SessionSidebarProps {
   onSelectNode: (id: string, type: TreeNode['type']) => void;
   activeNodeId: string | null;
   onAddNode: (parentId: string | null, type: 'title' | 'subheading' | 'note', name: string) => void;
+  onRenameNode: (nodeId: string, newName: string) => void;
+  onDeleteNode: (nodeId: string) => void;
   isReadOnly?: boolean;
 }
 
-export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeNodeId, onAddNode, isReadOnly = false }: SessionSidebarProps) {
+export function SessionSidebar({ 
+    sessionSubject, 
+    treeData, 
+    onSelectNode, 
+    activeNodeId, 
+    onAddNode,
+    onRenameNode,
+    onDeleteNode,
+    isReadOnly = false 
+}: SessionSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isAddingAtRoot, setIsAddingAtRoot] = useState<{ type: 'title' | 'note'; name: string } | null>(null);
   const rootInputRef = useRef<HTMLInputElement>(null);
@@ -206,7 +269,7 @@ export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeN
   }, [isAddingAtRoot]);
 
   const handleStartAddAtRoot = (type: 'title' | 'note', e?: React.MouseEvent) => {
-    if (isReadOnly) return;
+    if (isReadOnly || !rootNode) return;
     e?.stopPropagation();
     setIsAddingAtRoot({ type, name: '' });
   };
@@ -288,6 +351,8 @@ export function SessionSidebar({ sessionSubject, treeData, onSelectNode, activeN
                 onSelectNode={onSelectNode} 
                 activeNodeId={activeNodeId}
                 onAddNode={onAddNode}
+                onRenameNode={onRenameNode}
+                onDeleteNode={onDeleteNode}
                 isReadOnly={isReadOnly}
               />
          ))}
