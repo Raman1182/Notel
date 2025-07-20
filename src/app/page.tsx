@@ -230,7 +230,7 @@ export default function DashboardPage() {
         <AppHeader />
         <main className="flex-1 flex flex-col items-center justify-center text-center p-8">
           <Sparkles className="h-20 w-20 text-primary mb-6" />
-          <h1 className="text-3xl font-bold mb-3">Welcome to LearnLog</h1>
+          <h1 className="text-3xl font-bold mb-3">Welcome to Notel</h1>
           <p className="text-muted-foreground mb-8 max-w-md">
             Sign in to access your personalized dashboard and track your learning journey.
           </p>

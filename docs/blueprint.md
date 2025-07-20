@@ -1,4 +1,4 @@
-# **App Name**: LearnLog
+# **App Name**: Notel
 
 ## Core Features:
 

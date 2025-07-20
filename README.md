@@ -1,5 +1,5 @@
 
-# LearnLog: Your AI-Powered Study Companion
+# notel: Your AI-Powered Study Companion
 
 **Live Demo:** [Link to your Vercel deployment](https://learnlog-ai.vercel.app/)
 
@@ -7,7 +7,7 @@
 
 ## Overview
 
-LearnLog is a modern, AI-enhanced productivity application designed to supercharge the learning process for students. It moves beyond simple note-taking, acting as an intelligent "second brain" that helps users organize, understand, and connect with their study material in a meaningful way. By integrating generative AI tools directly into the workflow, LearnLog transforms scattered notes into a structured, searchable, and interactive knowledge base.
+notel is a modern, AI-enhanced productivity application designed to supercharge the learning process for students. It moves beyond simple note-taking, acting as an intelligent "second brain" that helps users organize, understand, and connect with their study material in a meaningful way. By integrating generative AI tools directly into the workflow, notel transforms scattered notes into a structured, searchable, and interactive knowledge base.
 
 This project was built to solve the common problems of disorganized study habits, information overload, and the difficulty of seeing the bigger picture across different subjects. It provides a centralized hub for focused work, task management, and AI-driven insights.
 

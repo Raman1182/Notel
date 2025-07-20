@@ -72,7 +72,7 @@ export function CommandPalette() {
   // Load and rehydrate recent items from localStorage
   useEffect(() => {
     if (typeof window !== 'undefined' && isOpen) {
-      const storedRecentsJSON = localStorage.getItem('learnlog-recent-cmd-items');
+      const storedRecentsJSON = localStorage.getItem('Notel-recent-cmd-items');
       if (storedRecentsJSON) {
         try {
           const parsedStoredRecents: StoredRecentItem[] = JSON.parse(storedRecentsJSON);
@@ -91,7 +91,7 @@ export function CommandPalette() {
           setRecentItems(rehydratedRecents);
         } catch (e) {
           console.error("Failed to parse or rehydrate recent items from localStorage", e);
-          localStorage.removeItem('learnlog-recent-cmd-items');
+          localStorage.removeItem('Notel-recent-cmd-items');
           setRecentItems([]);
         }
       } else {
@@ -104,7 +104,7 @@ export function CommandPalette() {
   const addRecentItem = useCallback((action: CommandAction) => {
     let currentStoredRecents: StoredRecentItem[] = [];
     if (typeof window !== 'undefined') {
-        const storedRecentsJSON = localStorage.getItem('learnlog-recent-cmd-items');
+        const storedRecentsJSON = localStorage.getItem('Notel-recent-cmd-items');
         currentStoredRecents = storedRecentsJSON ? JSON.parse(storedRecentsJSON) : [];
     }
 
@@ -116,7 +116,7 @@ export function CommandPalette() {
       .slice(0, 5);
 
     if (typeof window !== 'undefined') {
-        localStorage.setItem('learnlog-recent-cmd-items', JSON.stringify(newStoredRecents));
+        localStorage.setItem('Notel-recent-cmd-items', JSON.stringify(newStoredRecents));
     }
     
     // Update the state for immediate UI reflection

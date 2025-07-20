@@ -98,7 +98,7 @@ export default function SettingsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center"><Brush className="mr-2 h-5 w-5 text-primary" /> Appearance</CardTitle>
-                  <CardDescription>Customize the look and feel of LearnLog.</CardDescription>
+                  <CardDescription>Customize the look and feel of Notel.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6 pt-2">
                   <div className="flex items-center justify-between">

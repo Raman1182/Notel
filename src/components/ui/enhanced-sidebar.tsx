@@ -2,7 +2,7 @@
 // This file is a copy of the provided src/components/ui/sidebar.tsx
 // with minor adjustments for theme and potentially new elements like SidebarTitle.
 // The original sidebar.tsx might be overwritten or used by other scaffolding logic,
-// so this copy ensures its availability and allows modifications specific to LearnLog's needs.
+// so this copy ensures its availability and allows modifications specific to Notel's needs.
 // With the shift to command palette, this component's usage might be limited or repurposed.
 
 "use client"
@@ -27,7 +27,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-const SIDEBAR_COOKIE_NAME = "learnlog_sidebar_state"
+const SIDEBAR_COOKIE_NAME = "Notel_sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "280px" 
 const SIDEBAR_WIDTH_MOBILE = "20rem" 

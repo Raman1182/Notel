@@ -57,7 +57,7 @@ export function AppSidebar() {
         <Link href="/" className="flex items-center gap-2">
           <Sparkles className="h-7 w-7 text-primary transition-all duration-300 group-hover:rotate-[20deg]" />
           <span className="text-2xl font-bold font-headline tracking-tight text-foreground group-data-[collapsible=icon]:hidden">
-            LearnLog
+            Notel
           </span>
         </Link>
       </SidebarHeader>

@@ -32,7 +32,7 @@ const prompt = ai.definePrompt({
   name: 'processUrlPrompt',
   input: { schema: ProcessUrlInputSchema },
   output: { schema: ProcessUrlOutputSchema },
-  prompt: `You are an AI assistant integrated into the LearnLog app. Your task is to process the content from a provided URL, summarize it, and generate structured notes.
+  prompt: `You are an AI assistant integrated into the Notel app. Your task is to process the content from a provided URL, summarize it, and generate structured notes.
 
 **Important:** This feature is designed to work with text-based online articles and blog posts. It may not work correctly with video platforms (like YouTube), social media, complex web applications, or pages behind a paywall.
 

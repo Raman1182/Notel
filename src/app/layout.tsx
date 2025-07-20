@@ -20,7 +20,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'LearnLog - Student Productivity App',
+  title: 'Notel - Student Productivity App',
   description: 'Your premium student productivity partner for focused learning and organization.',
   icons: {
     icon: '/icons.svg',

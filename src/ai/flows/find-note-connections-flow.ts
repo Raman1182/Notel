@@ -48,7 +48,7 @@ const prompt = ai.definePrompt({
   name: 'findNoteConnectionsPrompt',
   input: { schema: FindNoteConnectionsInputSchema },
   output: { schema: FindNoteConnectionsOutputSchema },
-  prompt: `You are an AI assistant integrated into a note-taking application called LearnLog. Your task is to help users discover connections between their current study note and their past notes.
+  prompt: `You are an AI assistant integrated into a note-taking application called Notel. Your task is to help users discover connections between their current study note and their past notes.
 
 The user is currently working on a note (ID: {{{currentNoteId}}})
 {{#if currentNoteSubject}}

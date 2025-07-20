@@ -48,7 +48,7 @@ export function AppHeader() {
         <div className="flex items-center space-x-3">
           <Link href="/" className="flex items-center space-x-2">
             <Sparkles className="h-7 w-7 text-primary" />
-            <span className="text-2xl font-bold font-headline tracking-tight">LearnLog</span>
+            <span className="text-2xl font-bold font-headline tracking-tight">Notel</span>
           </Link>
         </div>
 

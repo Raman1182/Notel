@@ -50,7 +50,7 @@ export function AiAssistantBubble() {
       setIsOpen(true);
       setIsChatOpen(true);
       const detailText = event?.detail?.text; 
-      const detailSubject = event?.detail?.subject || localStorage.getItem('learnlog-lastActiveSubject') || undefined;
+      const detailSubject = event?.detail?.subject || localStorage.getItem('Notel-lastActiveSubject') || undefined;
 
       setCurrentStudySubject(detailSubject);
       setMessages([]); 
@@ -59,13 +59,13 @@ export function AiAssistantBubble() {
       setMessages([{ 
           id: 'initial-chat', 
           type: 'system', 
-          text: 'Hello! I am LearnLog AI, your study buddy. How can I help you today? You can ask me questions, paste text for discussion, or request study tips.' 
+          text: 'Hello! I am Notel AI, your study buddy. How can I help you today? You can ask me questions, paste text for discussion, or request study tips.' 
       }]);
     };
     window.addEventListener('open-ai-assistant', handleOpenAiAssistant as EventListener);
     
     if (isOpen && !currentStudySubject) {
-        const lastSubject = localStorage.getItem('learnlog-lastActiveSubject');
+        const lastSubject = localStorage.getItem('Notel-lastActiveSubject');
         if (lastSubject) setCurrentStudySubject(lastSubject);
     }
 
@@ -110,11 +110,11 @@ export function AiAssistantBubble() {
     setIsOpen(newOpenState);
     if (newOpenState) { 
         setIsChatOpen(true); 
-        setCurrentStudySubject(localStorage.getItem('learnlog-lastActiveSubject') || undefined);
+        setCurrentStudySubject(localStorage.getItem('Notel-lastActiveSubject') || undefined);
         setMessages([{ 
           id: 'initial-chat-toggle', 
           type: 'system', 
-          text: 'Hello! I am LearnLog AI. How can I help?' 
+          text: 'Hello! I am Notel AI. How can I help?' 
         }]);
         setChatInputValue('');
     } else {
@@ -140,7 +140,7 @@ export function AiAssistantBubble() {
           <DialogHeader className="p-3 border-b border-border">
             <DialogTitle className="flex items-center gap-2 text-base md:text-lg font-headline">
               <MessageSquare className="h-5 w-5 text-primary" />
-              LearnLog AI
+              Notel AI
             </DialogTitle>
              <DialogDescription className="text-xs">Your conversational study buddy.</DialogDescription>
           </DialogHeader>

@@ -13,7 +13,7 @@ export default function AuthenticationPage() {
         <div className="relative z-20 flex items-center text-lg font-medium">
           <Link href="/" className="flex items-center">
             <Sparkles className="mr-2 h-6 w-6 text-primary" />
-            LearnLog
+            Notel
           </Link>
         </div>
         

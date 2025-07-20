@@ -25,7 +25,7 @@ const achievementsList: Achievement[] = [
     { icon: Flame, title: "Eternal Flame", description: "Maintained a 30-day study streak.", achieved: false, tier: 'gold' },
     { icon: Star, title: "Subject Adept", description: "Created notes for 10 different subjects.", achieved: false, tier: 'gold' },
     { icon: Play, title: "Centurion", description: "Completed 100 hours of focused study.", achieved: false, tier: 'gold' },
-    { icon: Trophy, title: "LearnLog Master", description: "Achieved all other achievements.", achieved: false, tier: 'gold' },
+    { icon: Trophy, title: "Notel Master", description: "Achieved all other achievements.", achieved: false, tier: 'gold' },
 ];
 
 const tierStyles = {

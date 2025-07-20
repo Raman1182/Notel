@@ -59,7 +59,7 @@ const prompt = ai.definePrompt({
   name: 'suggestNextTopicPrompt',
   input: { schema: SuggestNextTopicPromptInputSchema }, // Use internal schema
   output: { schema: SuggestNextTopicOutputSchema },
-  prompt: `You are an expert academic advisor AI for the LearnLog app. Your goal is to help a student decide what to study next.
+  prompt: `You are an expert academic advisor AI for the Notel app. Your goal is to help a student decide what to study next.
 
 Analyze the student's study history and upcoming deadlines to provide a smart recommendation.
 
